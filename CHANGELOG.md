@@ -1,3 +1,10 @@
+## [1.2.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.1.0...v1.2.0) (2026-09-11)
+
+### Features
+
+* **tracker:** refuse exports that cover only part of the follower list ([e7ae8da](https://github.com/williamokano/insta-follower-tracker/commit/e7ae8da517ab7e763e4faf6a4fa912574568f194))
+* **tracker:** refuse exports that cover only part of the follower list ([#10](https://github.com/williamokano/insta-follower-tracker/issues/10)) ([4f6a268](https://github.com/williamokano/insta-follower-tracker/commit/4f6a268028f9f1912401be71215e163aa87c0475))
+
 ## [1.1.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.0.0...v1.1.0) (2026-09-11)
 
 ### Features
