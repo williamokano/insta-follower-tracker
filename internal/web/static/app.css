@@ -169,6 +169,18 @@ button.toggle {
 
 button.toggle[aria-expanded="true"] { color: var(--text); border-color: var(--accent); }
 
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.82rem;
+  color: var(--muted);
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+
+.checkbox input { width: auto; padding: 0; margin: 0; }
+
 /* Accounts ---------------------------------------------------------------- */
 
 .accounts { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }

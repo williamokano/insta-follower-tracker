@@ -32,7 +32,7 @@ func snapshot(t *testing.T, s *store.Store, accountID int64, name string, names 
 	t.Helper()
 	ctx := context.Background()
 
-	id, err := s.CreateUpload(ctx, accountID, name, "/tmp/"+name, "sha-"+name, 10)
+	id, err := s.CreateUpload(ctx, accountID, name, "/tmp/"+name, "sha-"+name, 10, false)
 	if err != nil {
 		t.Fatalf("create upload %s: %v", name, err)
 	}
@@ -283,11 +283,11 @@ func TestQueueClaimAndRequeue(t *testing.T) {
 		t.Fatalf("empty queue should report ErrNotFound, got %v", err)
 	}
 
-	firstID, err := s.CreateUpload(ctx, acc.ID, "a.json", "/tmp/a", "sha-a", 1)
+	firstID, err := s.CreateUpload(ctx, acc.ID, "a.json", "/tmp/a", "sha-a", 1, false)
 	if err != nil {
 		t.Fatalf("create a: %v", err)
 	}
-	secondID, err := s.CreateUpload(ctx, acc.ID, "b.json", "/tmp/b", "sha-b", 1)
+	secondID, err := s.CreateUpload(ctx, acc.ID, "b.json", "/tmp/b", "sha-b", 1, false)
 	if err != nil {
 		t.Fatalf("create b: %v", err)
 	}
@@ -330,7 +330,7 @@ func TestFailUploadRecordsReason(t *testing.T) {
 	ctx := context.Background()
 	acc, _ := s.EnsureAccount(ctx, "acme")
 
-	id, _ := s.CreateUpload(ctx, acc.ID, "bad.json", "/tmp/bad", "sha", 1)
+	id, _ := s.CreateUpload(ctx, acc.ID, "bad.json", "/tmp/bad", "sha", 1, false)
 	if err := s.FailUpload(ctx, id, "not an export"); err != nil {
 		t.Fatalf("fail: %v", err)
 	}
@@ -354,7 +354,7 @@ func TestReprocessingClearsPreviousState(t *testing.T) {
 
 	snapshot(t, s, acc.ID, "e1", "alice")
 
-	id, _ := s.CreateUpload(ctx, acc.ID, "e2", "/tmp/e2", "sha", 1)
+	id, _ := s.CreateUpload(ctx, acc.ID, "e2", "/tmp/e2", "sha", 1, false)
 	if _, err := s.ApplySnapshot(ctx, id, members("alice", "bob")); err != nil {
 		t.Fatalf("first apply: %v", err)
 	}

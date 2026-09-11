@@ -14,7 +14,8 @@ var ErrNotFound = errors.New("not found")
 
 const uploadColumns = `u.id, u.account_id, a.handle, u.sequence_no, u.original_filename,
 	u.stored_path, u.sha256, u.size_bytes, u.status, u.error_message, u.uploaded_at,
-	u.started_at, u.processed_at, u.follower_count, u.added_count, u.removed_count`
+	u.started_at, u.processed_at, u.follower_count, u.added_count, u.removed_count,
+	u.allow_partial`
 
 func scanUpload(sc interface{ Scan(...any) error }) (Upload, error) {
 	var (
@@ -25,7 +26,8 @@ func scanUpload(sc interface{ Scan(...any) error }) (Upload, error) {
 	)
 	err := sc.Scan(&up.ID, &up.AccountID, &up.AccountHandle, &up.SequenceNo, &up.OriginalFilename,
 		&up.StoredPath, &up.SHA256, &up.SizeBytes, &up.Status, &up.ErrorMessage, &uploadedAt,
-		&startedAt, &processedAt, &up.FollowerCount, &up.AddedCount, &up.RemovedCount)
+		&startedAt, &processedAt, &up.FollowerCount, &up.AddedCount, &up.RemovedCount,
+		&up.AllowPartial)
 	if err != nil {
 		return Upload{}, err
 	}
@@ -117,12 +119,13 @@ func (s *Store) ListAccounts(ctx context.Context) ([]AccountSummary, error) {
 	return out, rows.Err()
 }
 
-// CreateUpload records a freshly received file as pending work.
-func (s *Store) CreateUpload(ctx context.Context, accountID int64, filename, storedPath, sha string, size int64) (int64, error) {
+// CreateUpload records a freshly received file as pending work. allowPartial
+// carries an explicit decision to accept an export that looks date-limited.
+func (s *Store) CreateUpload(ctx context.Context, accountID int64, filename, storedPath, sha string, size int64, allowPartial bool) (int64, error) {
 	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO uploads (account_id, original_filename, stored_path, sha256, size_bytes, status, uploaded_at)
-		VALUES (?, ?, ?, ?, ?, 'pending', ?)`,
-		accountID, filename, storedPath, sha, size, time.Now().UTC().Unix())
+		INSERT INTO uploads (account_id, original_filename, stored_path, sha256, size_bytes, status, uploaded_at, allow_partial)
+		VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
+		accountID, filename, storedPath, sha, size, time.Now().UTC().Unix(), allowPartial)
 	if err != nil {
 		return 0, fmt.Errorf("insert upload: %w", err)
 	}
@@ -233,4 +236,17 @@ func (s *Store) PendingCount(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("count pending: %w", err)
 	}
 	return n, nil
+}
+
+// LatestCompletedUpload returns an account's most recent processed execution,
+// or nil when it has none yet.
+func (s *Store) LatestCompletedUpload(ctx context.Context, accountID int64) (*Upload, error) {
+	up, err := s.BoundaryUpload(ctx, accountID, true)
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &up, nil
 }

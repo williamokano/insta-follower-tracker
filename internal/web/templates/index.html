@@ -25,7 +25,20 @@
     </div>
 
     <button type="submit">Upload</button>
+
+    <label class="checkbox" title="Only tick this if you know the export covers a limited date range and you want it recorded anyway.">
+      <input type="checkbox" name="allow_partial" value="1">
+      Accept a partial export
+    </label>
   </form>
+
+  <p class="hint callout">
+    When you request the download, set the date range to <strong>All time</strong>.
+    A download limited to a date range lists only the people who started following
+    inside that window, and comparing it against a full one reports everybody else
+    as having unfollowed. Uploads that look date-limited are refused unless you
+    tick the box above.
+  </p>
 </section>
 
 {{if .Accounts}}

@@ -59,6 +59,9 @@ type Upload struct {
 	// IsBaseline is true for the first execution of an account, which has no
 	// predecessor to diff against.
 	IsBaseline bool `json:"is_baseline"`
+	// AllowPartial records that this upload was accepted despite looking like
+	// it covers only part of the follower list.
+	AllowPartial bool `json:"allow_partial"`
 }
 
 // Member is one follower within a snapshot, as handed to ApplySnapshot.

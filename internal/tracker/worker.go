@@ -99,13 +99,23 @@ func (s *Service) process(ctx context.Context, up store.Upload) error {
 		return fmt.Errorf("stat stored upload: %w", err)
 	}
 
-	followers, err := instagram.Parse(f, info.Size())
+	export, err := instagram.Parse(f, info.Size())
 	if err != nil {
 		return err
 	}
 
-	members := make([]store.Member, 0, len(followers))
-	for _, fl := range followers {
+	// A partial export must never be recorded silently: diffed against a
+	// complete one it manufactures an unfollow for everybody it leaves out.
+	previous, err := s.store.LatestCompletedUpload(ctx, up.AccountID)
+	if err != nil {
+		return err
+	}
+	if err := s.checkCoverage(export, previous, up.AllowPartial); err != nil {
+		return err
+	}
+
+	members := make([]store.Member, 0, len(export.Followers))
+	for _, fl := range export.Followers {
 		members = append(members, store.Member{
 			Username:   fl.Username,
 			Href:       fl.Href,

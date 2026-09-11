@@ -9,10 +9,16 @@ import (
 	"sort"
 )
 
+// startHerePattern matches the export's own summary page, which newer
+// downloads use to state the date range they cover.
+var startHerePattern = regexp.MustCompile(`(?i)(^|/)start_here\.html?$`)
+
 // relatedListPattern matches the other relationship lists that sit beside the
 // follower list, so a failure can point at what was there instead.
 var relatedListPattern = regexp.MustCompile(
-	`(?i)(^|/)(following|close_friends|pending_follow_requests|recent_follow_requests|recently_unfollowed_profiles|blocked_profiles|restricted_profiles)\.(json|html?)$`)
+	`(?i)(^|/)(following|following_hashtags|close_friends|pending_follow_requests|recent_follow_requests|` +
+		`recently_unfollowed_(profiles|accounts)|blocked_(profiles|accounts)|restricted_profiles|` +
+		`removed_suggestions|profiles_you've_favorited)\.(json|html?)$`)
 
 // parseArchive walks an export archive and merges every follower list it finds.
 //
@@ -20,7 +26,7 @@ var relatedListPattern = regexp.MustCompile(
 // the export (media, messages, and everything else) is skipped without being
 // decompressed. Nothing is ever extracted to disk, so a hostile path inside the
 // archive has nowhere to escape to.
-func parseArchive(r io.ReaderAt, size int64) ([]Follower, error) {
+func parseArchive(r io.ReaderAt, size int64) (*Export, error) {
 	zr, err := zip.NewReader(r, size)
 	if err != nil {
 		return nil, fmt.Errorf("read archive: %w", err)
@@ -29,6 +35,7 @@ func parseArchive(r io.ReaderAt, size int64) ([]Follower, error) {
 	names := make([]string, 0, len(zr.File))
 	byName := make(map[string]*zip.File, len(zr.File))
 	nearMisses := make([]string, 0, 4)
+	var startHere *zip.File
 
 	inspected := 0
 	for _, f := range zr.File {
@@ -38,6 +45,9 @@ func parseArchive(r io.ReaderAt, size int64) ([]Follower, error) {
 		}
 		if f.FileInfo().IsDir() {
 			continue
+		}
+		if startHerePattern.MatchString(f.Name) {
+			startHere = f
 		}
 		if !followersFilePattern.MatchString(f.Name) {
 			if len(nearMisses) < 4 && relatedListPattern.MatchString(f.Name) {
@@ -80,7 +90,22 @@ func parseArchive(r io.ReaderAt, size int64) ([]Follower, error) {
 	if !anyParsed || len(all) == 0 {
 		return nil, ErrNoFollowers
 	}
-	return dedupe(all), nil
+	all = dedupe(all)
+
+	return &Export{Followers: all, Coverage: archiveCoverage(startHere, budget)}, nil
+}
+
+// archiveCoverage reads the range the export declares about itself, when it
+// carries one. Older downloads state nothing, and report nothing.
+func archiveCoverage(startHere *zip.File, budget int64) Coverage {
+	if startHere == nil {
+		return Coverage{}
+	}
+	body, _, err := readArchiveEntry(startHere, budget)
+	if err != nil {
+		return Coverage{}
+	}
+	return coverageFromMetadata(body)
 }
 
 func readArchiveEntry(f *zip.File, budget int64) ([]byte, int64, error) {

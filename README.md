@@ -108,9 +108,17 @@ whole installation.
 1. Instagram → **Settings** → **Accounts Centre** → **Your information and
    permissions** → **Download your information**.
 2. Request a download. Select **Followers and following** (you can request
-   everything, the rest is ignored). Either **JSON** or **HTML** format works.
-   JSON is slightly better: it records the date each person followed you, which
-   the HTML format renders as localised prose and so is not read.
+   everything, the rest is ignored), and **set the date range to "All time"**.
+   Either **JSON** or **HTML** format works. JSON is slightly better: it records
+   the date each person followed you, which the HTML format renders as localised
+   prose and so is not read.
+
+   > **The date range is the one setting that matters.** A download limited to a
+   > date range contains only the people who *started following inside that
+   > window* — for a year-long window on an established account, that can be a
+   > few dozen names instead of hundreds. Compared against a full snapshot it
+   > reports everybody else as having unfollowed. Such uploads are refused, but
+   > it is much easier to request the download correctly than to notice later.
 3. When the archive arrives, upload the ZIP as-is. Alternatively, unzip it and
    upload the `followers_1` file from the `followers_and_following` folder
    (`.json` or `.html`, depending on the format you chose).
@@ -130,7 +138,7 @@ and so on. Uploading the ZIP handles that automatically.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/api/uploads` | Multipart upload: `account` and `file`. Answers `202` with the queued execution. |
+| `POST` | `/api/uploads` | Multipart upload: `account` and `file`, plus optional `allow_partial=1` to accept a date-limited export. Answers `202` with the queued execution. |
 | `GET` | `/api/uploads/{id}` | One execution, including its processing status. |
 | `GET` | `/api/uploads/{id}/changes` | That execution's diff. Filter with `?type=followed` or `?type=unfollowed`. |
 | `GET` | `/api/accounts` | Every tracked account with headline counts. |
@@ -158,6 +166,15 @@ curl -s 'http://localhost:8080/api/accounts/your.handle/diff' |
 - **Instagram handles are treated case-insensitively** and stored lowercased.
 - **The export does not name its owner**, which is why the account handle is
   asked for at upload time. One instance can track several accounts.
+- **Date-limited exports are refused.** Two checks: the date range newer
+  downloads declare in `start_here.html`, and a fall in follower count too steep
+  to be real (more than half, on accounts above 25 followers). Tick *Accept a
+  partial export*, or send `allow_partial=1`, to record one anyway.
+- **One gap is known and not guessable.** A *first* upload, of a date-limited
+  download, in a format old enough to declare no range, cannot be detected from
+  the file alone — there is no baseline to compare it against and nothing in it
+  says what it covers. Follow dates look like they would help and do not: a young
+  or fast-growing account has the same shape as a filtered export of an old one.
 - **Follow dates are only read from JSON exports.** The HTML format writes them
   in the account's own language, so they are left empty rather than guessed at.
   They are display metadata and never affect a diff.

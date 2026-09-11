@@ -97,9 +97,15 @@ func exportZip(t *testing.T, usernames ...string) []byte {
 // test observes the same end state the background worker would produce.
 func upload(t *testing.T, svc *tracker.Service, handle, filename string, body []byte) store.Upload {
 	t.Helper()
+	return uploadWith(t, svc, handle, filename, body, tracker.AcceptOptions{})
+}
+
+// uploadWith is upload with explicit intake options.
+func uploadWith(t *testing.T, svc *tracker.Service, handle, filename string, body []byte, opts tracker.AcceptOptions) store.Upload {
+	t.Helper()
 	ctx := context.Background()
 
-	up, err := svc.Accept(ctx, handle, filename, bytes.NewReader(body))
+	up, err := svc.Accept(ctx, handle, filename, bytes.NewReader(body), opts)
 	if err != nil {
 		t.Fatalf("accept %s: %v", filename, err)
 	}
@@ -141,7 +147,7 @@ func TestAcceptQueuesWithoutParsing(t *testing.T) {
 
 	// Deliberately not a valid export: Accept must still succeed, because
 	// parsing is the worker's job and happens after the response.
-	up, err := svc.Accept(ctx, "acme", "garbage.json", strings.NewReader("not an export"))
+	up, err := svc.Accept(ctx, "acme", "garbage.json", strings.NewReader("not an export"), tracker.AcceptOptions{})
 	if err != nil {
 		t.Fatalf("accept: %v", err)
 	}
@@ -289,7 +295,7 @@ func TestUploadSizeCapIsEnforced(t *testing.T) {
 	svc, st, uploadDir := newService(t, func(o *tracker.Options) { o.MaxUploadBytes = 32 })
 	ctx := context.Background()
 
-	_, err := svc.Accept(ctx, "acme", "big.json", bytes.NewReader(bytes.Repeat([]byte("x"), 1024)))
+	_, err := svc.Accept(ctx, "acme", "big.json", bytes.NewReader(bytes.Repeat([]byte("x"), 1024)), tracker.AcceptOptions{})
 	if err == nil {
 		t.Fatal("expected an oversized upload to be rejected")
 	}
@@ -315,7 +321,7 @@ func TestUploadSizeCapIsEnforced(t *testing.T) {
 func TestEmptyUploadIsRejected(t *testing.T) {
 	svc, _, _ := newService(t)
 
-	if _, err := svc.Accept(context.Background(), "acme", "empty.json", bytes.NewReader(nil)); err == nil {
+	if _, err := svc.Accept(context.Background(), "acme", "empty.json", bytes.NewReader(nil), tracker.AcceptOptions{}); err == nil {
 		t.Fatal("expected an empty upload to be rejected")
 	}
 }
@@ -323,7 +329,7 @@ func TestEmptyUploadIsRejected(t *testing.T) {
 func TestAccountHandleIsRequired(t *testing.T) {
 	svc, _, _ := newService(t)
 
-	if _, err := svc.Accept(context.Background(), "  ", "e.json", bytes.NewReader(exportJSON(t, "alice"))); err == nil {
+	if _, err := svc.Accept(context.Background(), "  ", "e.json", bytes.NewReader(exportJSON(t, "alice")), tracker.AcceptOptions{}); err == nil {
 		t.Fatal("expected a blank account handle to be rejected")
 	}
 }
@@ -332,7 +338,7 @@ func TestUploadedFilenameCannotEscapeTheUploadDirectory(t *testing.T) {
 	svc, st, _ := newService(t)
 	ctx := context.Background()
 
-	up, err := svc.Accept(ctx, "acme", "../../../../etc/passwd", bytes.NewReader(exportJSON(t, "alice")))
+	up, err := svc.Accept(ctx, "acme", "../../../../etc/passwd", bytes.NewReader(exportJSON(t, "alice")), tracker.AcceptOptions{})
 	if err != nil {
 		t.Fatalf("accept: %v", err)
 	}
@@ -354,7 +360,7 @@ func TestRunProcessesQueuedUploadsInBackground(t *testing.T) {
 	done := make(chan error, 1)
 	go func() { done <- svc.Run(ctx) }()
 
-	up, err := svc.Accept(ctx, "acme", "e1.zip", bytes.NewReader(exportZip(t, "alice", "bob")))
+	up, err := svc.Accept(ctx, "acme", "e1.zip", bytes.NewReader(exportZip(t, "alice", "bob")), tracker.AcceptOptions{})
 	if err != nil {
 		t.Fatalf("accept: %v", err)
 	}
@@ -396,7 +402,7 @@ func TestRunRequeuesUploadsInterruptedByRestart(t *testing.T) {
 	if err := os.WriteFile(path, exportJSON(t, "alice"), 0o644); err != nil {
 		t.Fatalf("write orphan: %v", err)
 	}
-	id, err := st.CreateUpload(ctx, acc.ID, "orphan.json", path, "sha", 10)
+	id, err := st.CreateUpload(ctx, acc.ID, "orphan.json", path, "sha", 10, false)
 	if err != nil {
 		t.Fatalf("create upload: %v", err)
 	}
