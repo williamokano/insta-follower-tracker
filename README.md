@@ -174,9 +174,11 @@ this is enforced on pull requests. Releases are cut by
 which derives the version, writes the changelog, tags the release and publishes
 the multi-arch image to GHCR as `X.Y.Z`, `X.Y`, `X` and `latest`.
 
-> **One-time setup:** GHCR creates new packages as private. After the first
-> successful release, open the package in GitHub and change its visibility to
-> public. No workflow permission can do this for you.
+The published package inherits this repository's visibility, because the image
+carries an `org.opencontainers.image.source` label that links it to the repo, so
+`v1.0.0` was pullable anonymously as soon as it was pushed. If you ever need to
+change that, package visibility is set on the package's own settings page — it is
+not something a workflow permission controls.
 
 ## Licence
 
