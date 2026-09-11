@@ -78,10 +78,18 @@ func New(st *store.Store, opts Options) (*Service, error) {
 // Store exposes the underlying store for read-only queries.
 func (s *Service) Store() *store.Store { return s.store }
 
+// AcceptOptions carries the per-upload choices made at intake.
+type AcceptOptions struct {
+	// AllowPartial accepts an export that looks restricted to a date range.
+	// Off by default, because such an export invents unfollows for everybody
+	// outside its window.
+	AllowPartial bool
+}
+
 // Accept stores an uploaded export and queues it for background processing. It
 // returns as soon as the file is on disk and the queue row exists: parsing
 // happens later on the worker.
-func (s *Service) Accept(ctx context.Context, handle, filename string, body io.Reader) (store.Upload, error) {
+func (s *Service) Accept(ctx context.Context, handle, filename string, body io.Reader, opts AcceptOptions) (store.Upload, error) {
 	account, err := s.store.EnsureAccount(ctx, handle)
 	if err != nil {
 		return store.Upload{}, err
@@ -99,7 +107,7 @@ func (s *Service) Accept(ctx context.Context, handle, filename string, body io.R
 		return store.Upload{}, err
 	}
 
-	id, err := s.store.CreateUpload(ctx, account.ID, sanitizeDisplayName(filename), path, sum, size)
+	id, err := s.store.CreateUpload(ctx, account.ID, sanitizeDisplayName(filename), path, sum, size, opts.AllowPartial)
 	if err != nil {
 		_ = os.Remove(path)
 		return store.Upload{}, err

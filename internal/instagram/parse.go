@@ -88,10 +88,19 @@ type entry struct {
 	} `json:"string_list_data"`
 }
 
+// Export is one parsed follower list, together with what could be determined
+// about how much of the list it represents.
+type Export struct {
+	Followers []Follower
+	// Coverage reports whether the export looks like the complete follower
+	// list or only a date-limited slice of it.
+	Coverage Coverage
+}
+
 // Parse reads a follower list from an uploaded file. The archive form is
 // detected from the content itself rather than the file name, so a renamed
 // export still works.
-func Parse(r io.ReaderAt, size int64) ([]Follower, error) {
+func Parse(r io.ReaderAt, size int64) (*Export, error) {
 	if size <= 0 {
 		return nil, ErrNoFollowers
 	}
@@ -108,7 +117,11 @@ func Parse(r io.ReaderAt, size int64) ([]Follower, error) {
 	if err != nil {
 		return nil, err
 	}
-	return dedupe(followers), nil
+	followers = dedupe(followers)
+
+	// A bare file carries no start_here page, so nothing in it describes how
+	// much of the follower list it holds.
+	return &Export{Followers: followers}, nil
 }
 
 // parseDocument reads one follower list, in whichever of the two download

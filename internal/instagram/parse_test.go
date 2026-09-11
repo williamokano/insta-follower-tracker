@@ -22,6 +22,16 @@ func fixture(t *testing.T, name string) []byte {
 
 func parse(t *testing.T, body []byte) ([]instagram.Follower, error) {
 	t.Helper()
+	export, err := instagram.Parse(bytes.NewReader(body), int64(len(body)))
+	if err != nil {
+		return nil, err
+	}
+	return export.Followers, nil
+}
+
+// parseExport keeps the full result for tests that care about coverage.
+func parseExport(t *testing.T, body []byte) (*instagram.Export, error) {
+	t.Helper()
 	return instagram.Parse(bytes.NewReader(body), int64(len(body)))
 }
 

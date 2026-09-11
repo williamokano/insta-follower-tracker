@@ -55,7 +55,9 @@ func (s *Server) handleCreateUpload(w http.ResponseWriter, r *http.Request) {
 		filename = header.Filename
 	}
 
-	upload, err := s.svc.Accept(r.Context(), handle, filename, file)
+	upload, err := s.svc.Accept(r.Context(), handle, filename, file, tracker.AcceptOptions{
+		AllowPartial: formFlag(r, "allow_partial"),
+	})
 	if errors.Is(err, tracker.ErrUploadTooLarge) {
 		s.writeError(w, r, http.StatusRequestEntityTooLarge, err)
 		return
@@ -291,4 +293,15 @@ func splitChanges(changes []store.Change) (followed, unfollowed []store.Change) 
 		}
 	}
 	return followed, unfollowed
+}
+
+// formFlag reads a checkbox-style field, accepting the several spellings a
+// browser form or an API client may send.
+func formFlag(r *http.Request, name string) bool {
+	switch strings.ToLower(strings.TrimSpace(r.FormValue(name))) {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
 }

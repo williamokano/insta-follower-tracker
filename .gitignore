@@ -11,11 +11,13 @@
 # Test binary, built with `go test -c`
 *.test
 
-# Code coverage profiles and other test artifacts
+# Code coverage profiles and other test artifacts. Anchored to the repository
+# root: "coverage.*" unanchored matches internal/<pkg>/coverage.go, which is an
+# ordinary source file name.
 *.out
-coverage.*
+/coverage.*
 *.coverprofile
-profile.cov
+/profile.cov
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
@@ -44,3 +46,9 @@ go.work.sum
 
 # Node (semantic-release / commitlint only)
 node_modules/
+
+# Safety net. Go sources are never build output, and an over-broad pattern that
+# silently drops one is invisible until a build from a fresh checkout fails.
+# This has bitten twice: "config/" swallowed internal/config, and "coverage.*"
+# swallowed internal/*/coverage.go. Nothing above may exclude a .go file.
+!*.go
