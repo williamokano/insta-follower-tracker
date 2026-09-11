@@ -1,3 +1,10 @@
+## [1.4.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.3.0...v1.4.0) (2026-09-11)
+
+### Features
+
+* **tracker:** read the account an export belongs to from the export ([cba7365](https://github.com/williamokano/insta-follower-tracker/commit/cba736519fbce421c884bdd83479d1878197d3ee))
+* **tracker:** read the account an export belongs to from the export ([#15](https://github.com/williamokano/insta-follower-tracker/issues/15)) ([b3976b9](https://github.com/williamokano/insta-follower-tracker/commit/b3976b9e02d21ad555b1ef3ddbd2bbebeca891b6))
+
 ## [1.3.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.2.0...v1.3.0) (2026-09-11)
 
 ### Features
