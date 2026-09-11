@@ -181,6 +181,19 @@ button.toggle[aria-expanded="true"] { color: var(--text); border-color: var(--ac
 
 .checkbox input { width: auto; padding: 0; margin: 0; }
 
+.optional {
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  opacity: 0.7;
+}
+
+.executions .source {
+  display: block;
+  font-size: 0.68rem;
+  color: var(--muted);
+}
+
 /* Accounts ---------------------------------------------------------------- */
 
 .accounts { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.4rem; }

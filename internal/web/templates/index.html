@@ -24,6 +24,12 @@
       <input id="file" name="file" type="file" accept=".zip,.json,application/zip,application/json" required>
     </div>
 
+    <div class="field">
+      <label for="snapshot_date">Export date <span class="optional">optional</span></label>
+      <input id="snapshot_date" name="snapshot_date" type="date">
+      <small>Read from the archive automatically. Set it only if that is wrong.</small>
+    </div>
+
     <button type="submit">Upload</button>
 
     <label class="checkbox" title="Only tick this if you know the export covers a limited date range and you want it recorded anyway.">
@@ -69,6 +75,7 @@
       <thead>
         <tr>
           <th>#</th>
+          <th>Export date</th>
           <th>Uploaded</th>
           <th>File</th>
           <th>Status</th>
@@ -82,6 +89,12 @@
         {{range .Uploads}}
           <tr class="execution" data-upload="{{.ID}}" data-status="{{.Status}}">
             <td>{{deref .SequenceNo}}</td>
+            <td>
+              {{if .SnapshotTakenAt}}
+                <time datetime="{{timestamp .SnapshotTakenAt.UTC}}">{{shortDate .SnapshotTakenAt.UTC}}</time>
+                {{if .SnapshotSource}}<small class="source">{{.SnapshotSource}}</small>{{end}}
+              {{else}}—{{end}}
+            </td>
             <td><time datetime="{{timestamp .UploadedAt}}">{{shortTime .UploadedAt}}</time></td>
             <td class="filename" title="{{.OriginalFilename}}">{{.OriginalFilename}}</td>
             <td>
@@ -98,12 +111,14 @@
             </td>
           </tr>
           <tr class="detail-row" data-detail="{{.ID}}" hidden>
-            <td colspan="8"><div class="detail" data-loaded="false">Loading…</div></td>
+            <td colspan="9"><div class="detail" data-loaded="false">Loading…</div></td>
           </tr>
         {{end}}
       </tbody>
     </table>
     <p class="hint">
+      Executions are ordered by export date, not upload time, so an older export
+      can be added at any point and still lands in its rightful place.
       The first execution is the baseline: there is nothing before it to compare against,
       so {{.CompletedCount}} processed {{plural .CompletedCount "execution gives" "executions give"}}
       {{.DiffCount}} {{plural .DiffCount "diff" "diffs"}}.

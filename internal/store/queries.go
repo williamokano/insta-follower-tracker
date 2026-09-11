@@ -15,7 +15,7 @@ var ErrNotFound = errors.New("not found")
 const uploadColumns = `u.id, u.account_id, a.handle, u.sequence_no, u.original_filename,
 	u.stored_path, u.sha256, u.size_bytes, u.status, u.error_message, u.uploaded_at,
 	u.started_at, u.processed_at, u.follower_count, u.added_count, u.removed_count,
-	u.allow_partial`
+	u.allow_partial, u.snapshot_taken_at, u.snapshot_source, u.snapshot_date_override`
 
 func scanUpload(sc interface{ Scan(...any) error }) (Upload, error) {
 	var (
@@ -23,17 +23,23 @@ func scanUpload(sc interface{ Scan(...any) error }) (Upload, error) {
 		uploadedAt  int64
 		startedAt   *int64
 		processedAt *int64
+		snapshotAt  *int64
+		overrideAt  *int64
 	)
 	err := sc.Scan(&up.ID, &up.AccountID, &up.AccountHandle, &up.SequenceNo, &up.OriginalFilename,
 		&up.StoredPath, &up.SHA256, &up.SizeBytes, &up.Status, &up.ErrorMessage, &uploadedAt,
 		&startedAt, &processedAt, &up.FollowerCount, &up.AddedCount, &up.RemovedCount,
-		&up.AllowPartial)
+		&up.AllowPartial, &snapshotAt, &up.SnapshotSource, &overrideAt)
 	if err != nil {
 		return Upload{}, err
 	}
 	up.UploadedAt = time.Unix(uploadedAt, 0).UTC()
 	up.StartedAt = unixPtr(startedAt)
 	up.ProcessedAt = unixPtr(processedAt)
+	up.SnapshotTakenAt = unixPtr(snapshotAt)
+	if overrideAt != nil {
+		up.SnapshotDate = time.Unix(*overrideAt, 0).UTC()
+	}
 	up.IsBaseline = up.SequenceNo != nil && *up.SequenceNo == 1
 	return up, nil
 }
@@ -119,13 +125,33 @@ func (s *Store) ListAccounts(ctx context.Context) ([]AccountSummary, error) {
 	return out, rows.Err()
 }
 
-// CreateUpload records a freshly received file as pending work. allowPartial
-// carries an explicit decision to accept an export that looks date-limited.
-func (s *Store) CreateUpload(ctx context.Context, accountID int64, filename, storedPath, sha string, size int64, allowPartial bool) (int64, error) {
+// NewUpload describes a file that has been stored and is waiting to be
+// processed.
+type NewUpload struct {
+	AccountID    int64
+	Filename     string
+	StoredPath   string
+	SHA256       string
+	SizeBytes    int64
+	AllowPartial bool
+	// SnapshotDate overrides the date read from the archive. Zero for none.
+	SnapshotDate time.Time
+}
+
+// CreateUpload records a freshly received file as pending work.
+func (s *Store) CreateUpload(ctx context.Context, in NewUpload) (int64, error) {
+	var override *int64
+	if !in.SnapshotDate.IsZero() {
+		v := in.SnapshotDate.UTC().Unix()
+		override = &v
+	}
+
 	res, err := s.db.ExecContext(ctx, `
-		INSERT INTO uploads (account_id, original_filename, stored_path, sha256, size_bytes, status, uploaded_at, allow_partial)
-		VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)`,
-		accountID, filename, storedPath, sha, size, time.Now().UTC().Unix(), allowPartial)
+		INSERT INTO uploads (account_id, original_filename, stored_path, sha256, size_bytes,
+		                     status, uploaded_at, allow_partial, snapshot_date_override)
+		VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)`,
+		in.AccountID, in.Filename, in.StoredPath, in.SHA256, in.SizeBytes,
+		time.Now().UTC().Unix(), in.AllowPartial, override)
 	if err != nil {
 		return 0, fmt.Errorf("insert upload: %w", err)
 	}
@@ -249,4 +275,84 @@ func (s *Store) LatestCompletedUpload(ctx context.Context, accountID int64) (*Up
 		return nil, err
 	}
 	return &up, nil
+}
+
+// PrecedingCompletedUpload returns the execution immediately before takenAt in
+// snapshot-date order, or nil when this would be the oldest.
+//
+// excludeID keeps an execution from being compared against itself when it is
+// reprocessed.
+func (s *Store) PrecedingCompletedUpload(ctx context.Context, accountID int64, takenAt time.Time, excludeID int64) (*Upload, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT `+uploadColumns+` FROM uploads u JOIN accounts a ON a.id = u.account_id
+		 WHERE u.account_id = ? AND u.status = 'completed' AND u.id <> ?
+		   AND u.snapshot_taken_at IS NOT NULL AND u.snapshot_taken_at <= ?
+		 ORDER BY u.snapshot_taken_at DESC, u.uploaded_at DESC, u.id DESC LIMIT 1`,
+		accountID, excludeID, takenAt.UTC().Unix())
+
+	up, err := scanUpload(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, fmt.Errorf("select preceding upload: %w", err)
+	}
+	return &up, nil
+}
+
+// UploadsWithUnknownSnapshotDate lists completed executions whose date was
+// inferred from processing order rather than read from the export, which is
+// how executions recorded before snapshot dates existed were migrated.
+func (s *Store) UploadsWithUnknownSnapshotDate(ctx context.Context) ([]Upload, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT `+uploadColumns+` FROM uploads u JOIN accounts a ON a.id = u.account_id
+		 WHERE u.status = 'completed' AND u.snapshot_source = ?
+		 ORDER BY u.id`, SourceProcessingOrder)
+	if err != nil {
+		return nil, fmt.Errorf("list executions with unknown dates: %w", err)
+	}
+	defer rows.Close()
+
+	out := []Upload{}
+	for rows.Next() {
+		up, err := scanUpload(rows)
+		if err != nil {
+			return nil, fmt.Errorf("scan execution: %w", err)
+		}
+		out = append(out, up)
+	}
+	return out, rows.Err()
+}
+
+// SetSnapshotDate corrects an execution's export date and rebuilds the
+// account's history around the new ordering.
+func (s *Store) SetSnapshotDate(ctx context.Context, uploadID int64, takenAt time.Time, source string) error {
+	tx, err := s.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("begin snapshot date update: %w", err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	var accountID int64
+	if err := tx.QueryRowContext(ctx,
+		`SELECT account_id FROM uploads WHERE id = ?`, uploadID).Scan(&accountID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return fmt.Errorf("load upload: %w", err)
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE uploads SET snapshot_taken_at = ?, snapshot_source = ? WHERE id = ?`,
+		takenAt.UTC().Unix(), source, uploadID); err != nil {
+		return fmt.Errorf("update snapshot date: %w", err)
+	}
+
+	if err := recomputeAccount(ctx, tx, accountID); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("commit snapshot date update: %w", err)
+	}
+	return nil
 }

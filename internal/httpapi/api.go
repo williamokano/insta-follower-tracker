@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/williamokano/insta-follower-tracker/internal/store"
 	"github.com/williamokano/insta-follower-tracker/internal/tracker"
@@ -55,8 +56,15 @@ func (s *Server) handleCreateUpload(w http.ResponseWriter, r *http.Request) {
 		filename = header.Filename
 	}
 
+	snapshotDate, err := formDate(r, "snapshot_date")
+	if err != nil {
+		s.writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
 	upload, err := s.svc.Accept(r.Context(), handle, filename, file, tracker.AcceptOptions{
 		AllowPartial: formFlag(r, "allow_partial"),
+		SnapshotDate: snapshotDate,
 	})
 	if errors.Is(err, tracker.ErrUploadTooLarge) {
 		s.writeError(w, r, http.StatusRequestEntityTooLarge, err)
@@ -304,4 +312,18 @@ func formFlag(r *http.Request, name string) bool {
 	default:
 		return false
 	}
+}
+
+// formDate reads an optional YYYY-MM-DD field, the shape an HTML date input
+// submits.
+func formDate(r *http.Request, name string) (time.Time, error) {
+	raw := strings.TrimSpace(r.FormValue(name))
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	t, err := time.Parse("2006-01-02", raw)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("%s must be a date as YYYY-MM-DD, got %q", name, raw)
+	}
+	return t.UTC(), nil
 }

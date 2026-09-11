@@ -138,7 +138,7 @@ and so on. Uploading the ZIP handles that automatically.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/api/uploads` | Multipart upload: `account` and `file`, plus optional `allow_partial=1` to accept a date-limited export. Answers `202` with the queued execution. |
+| `POST` | `/api/uploads` | Multipart upload: `account` and `file`, plus optional `allow_partial=1` to accept a date-limited export and `snapshot_date=YYYY-MM-DD` to override the export date. Answers `202` with the queued execution. |
 | `GET` | `/api/uploads/{id}` | One execution, including its processing status. |
 | `GET` | `/api/uploads/{id}/changes` | That execution's diff. Filter with `?type=followed` or `?type=unfollowed`. |
 | `GET` | `/api/accounts` | Every tracked account with headline counts. |
@@ -158,11 +158,39 @@ curl -s 'http://localhost:8080/api/accounts/your.handle/diff' |
   jq '.lost[].username'
 ```
 
+## Backfilling old exports
+
+Uploads do not have to arrive in order. Each execution is placed by **when its
+export was generated**, so an archive from two years ago can be added today and
+will sort into its rightful place in the history.
+
+Inserting an execution changes what the ones around it should be compared
+against, so the whole account's history is recomputed after every upload. That
+is exact rather than approximate, because each execution stores its complete
+follower list rather than only its deltas — the same property that makes the
+overall diff honest about people who left and came back.
+
+Upgrading from a version before export dates were tracked needs nothing: on
+first start the service re-reads the dates from the uploads it kept, so an
+existing history sorts correctly and accepts backfills straight away. Exports
+whose files were not retained keep the order they already had.
+
+```sh
+# Order of upload is irrelevant; order of export date is what counts.
+curl -F account=your.handle -F file=@instagram-you-2024-07-12-abc.zip \
+  http://localhost:8080/api/uploads
+curl -F account=your.handle -F file=@instagram-you-2026-09-11-xyz.zip \
+  http://localhost:8080/api/uploads
+```
+
 ## Notes and limitations
 
 - **The first upload has no diff.** It is the starting point.
-- **Executions are ordered by when they were processed**, not by any date inside
-  the export. Upload your exports oldest first.
+- **Executions are ordered by when the export was generated**, not by when it
+  was uploaded, so exports can be added in any order. The date is read from the
+  archive: from the generation time newer downloads state about themselves, then
+  the archive's own timestamps, then the date in the file name. Set *Export date*
+  on the upload form to override a wrong guess.
 - **Instagram handles are treated case-insensitively** and stored lowercased.
 - **The export does not name its owner**, which is why the account handle is
   asked for at upload time. One instance can track several accounts.

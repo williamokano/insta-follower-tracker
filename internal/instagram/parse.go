@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 )
 
 // ErrNoFollowers reports that the input parsed successfully but contained no
@@ -95,6 +96,11 @@ type Export struct {
 	// Coverage reports whether the export looks like the complete follower
 	// list or only a date-limited slice of it.
 	Coverage Coverage
+	// TakenAt is when the export was generated, as far as the file itself
+	// says. Zero when nothing in it reveals that.
+	TakenAt time.Time
+	// TakenAtSource names where TakenAt came from.
+	TakenAtSource string
 }
 
 // Parse reads a follower list from an uploaded file. The archive form is

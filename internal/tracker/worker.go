@@ -34,6 +34,11 @@ func (s *Service) Run(ctx context.Context) error {
 		s.log.Info("requeued uploads interrupted by a restart", "count", requeued)
 	}
 
+	// Executions from before export dates were tracked carry only their
+	// processing order; read their real dates now that the files can be
+	// re-examined.
+	s.backfillSnapshotDates(ctx)
+
 	ticker := time.NewTicker(s.opts.PollInterval)
 	defer ticker.Stop()
 
@@ -104,9 +109,16 @@ func (s *Service) process(ctx context.Context, up store.Upload) error {
 		return err
 	}
 
+	takenAt, source := resolveSnapshotDate(export, up.OriginalFilename, up.SnapshotDate, up.UploadedAt)
+
 	// A partial export must never be recorded silently: diffed against a
 	// complete one it manufactures an unfollow for everybody it leaves out.
-	previous, err := s.store.LatestCompletedUpload(ctx, up.AccountID)
+	//
+	// The comparison is against whichever execution precedes this one in time,
+	// not the most recent one. Backfilling an older export legitimately shows
+	// fewer followers than a later snapshot, and judging it against that would
+	// reject exactly the history this service is meant to accumulate.
+	previous, err := s.store.PrecedingCompletedUpload(ctx, up.AccountID, takenAt, up.ID)
 	if err != nil {
 		return err
 	}
@@ -123,7 +135,7 @@ func (s *Service) process(ctx context.Context, up store.Upload) error {
 		})
 	}
 
-	result, err := s.store.ApplySnapshot(ctx, up.ID, members)
+	result, err := s.store.ApplySnapshot(ctx, up.ID, members, takenAt, source)
 	if err != nil {
 		return err
 	}
@@ -134,6 +146,7 @@ func (s *Service) process(ctx context.Context, up store.Upload) error {
 	} else {
 		s.log.Info("execution processed",
 			"upload_id", up.ID, "account", up.AccountHandle, "sequence", result.SequenceNo,
+			"snapshot_taken_at", takenAt, "date_source", source,
 			"followers", result.FollowerCount, "followed", result.AddedCount, "unfollowed", result.RemovedCount)
 	}
 

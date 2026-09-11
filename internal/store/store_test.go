@@ -5,6 +5,7 @@ import (
 	"errors"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/williamokano/insta-follower-tracker/internal/store"
 )
@@ -17,6 +18,12 @@ func newStore(t *testing.T) *store.Store {
 	}
 	t.Cleanup(func() { _ = s.Close() })
 	return s
+}
+
+// snapshotTime gives each execution a distinct, increasing date so ordering in
+// tests is deterministic without depending on wall-clock time.
+func snapshotTime(seed int64) time.Time {
+	return time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(seed) * time.Hour)
 }
 
 func members(names ...string) []store.Member {
@@ -32,11 +39,14 @@ func snapshot(t *testing.T, s *store.Store, accountID int64, name string, names 
 	t.Helper()
 	ctx := context.Background()
 
-	id, err := s.CreateUpload(ctx, accountID, name, "/tmp/"+name, "sha-"+name, 10, false)
+	id, err := s.CreateUpload(ctx, store.NewUpload{
+		AccountID: accountID, Filename: name, StoredPath: "/tmp/" + name,
+		SHA256: "sha-" + name, SizeBytes: 10,
+	})
 	if err != nil {
 		t.Fatalf("create upload %s: %v", name, err)
 	}
-	if _, err := s.ApplySnapshot(ctx, id, members(names...)); err != nil {
+	if _, err := s.ApplySnapshot(ctx, id, members(names...), snapshotTime(id), "test"); err != nil {
 		t.Fatalf("apply snapshot %s: %v", name, err)
 	}
 	up, err := s.Upload(ctx, id)
@@ -283,11 +293,15 @@ func TestQueueClaimAndRequeue(t *testing.T) {
 		t.Fatalf("empty queue should report ErrNotFound, got %v", err)
 	}
 
-	firstID, err := s.CreateUpload(ctx, acc.ID, "a.json", "/tmp/a", "sha-a", 1, false)
+	firstID, err := s.CreateUpload(ctx, store.NewUpload{
+		AccountID: acc.ID, Filename: "a.json", StoredPath: "/tmp/a", SHA256: "sha-a", SizeBytes: 1,
+	})
 	if err != nil {
 		t.Fatalf("create a: %v", err)
 	}
-	secondID, err := s.CreateUpload(ctx, acc.ID, "b.json", "/tmp/b", "sha-b", 1, false)
+	secondID, err := s.CreateUpload(ctx, store.NewUpload{
+		AccountID: acc.ID, Filename: "b.json", StoredPath: "/tmp/b", SHA256: "sha-b", SizeBytes: 1,
+	})
 	if err != nil {
 		t.Fatalf("create b: %v", err)
 	}
@@ -330,7 +344,9 @@ func TestFailUploadRecordsReason(t *testing.T) {
 	ctx := context.Background()
 	acc, _ := s.EnsureAccount(ctx, "acme")
 
-	id, _ := s.CreateUpload(ctx, acc.ID, "bad.json", "/tmp/bad", "sha", 1, false)
+	id, _ := s.CreateUpload(ctx, store.NewUpload{
+		AccountID: acc.ID, Filename: "bad.json", StoredPath: "/tmp/bad", SHA256: "sha", SizeBytes: 1,
+	})
 	if err := s.FailUpload(ctx, id, "not an export"); err != nil {
 		t.Fatalf("fail: %v", err)
 	}
@@ -354,11 +370,13 @@ func TestReprocessingClearsPreviousState(t *testing.T) {
 
 	snapshot(t, s, acc.ID, "e1", "alice")
 
-	id, _ := s.CreateUpload(ctx, acc.ID, "e2", "/tmp/e2", "sha", 1, false)
-	if _, err := s.ApplySnapshot(ctx, id, members("alice", "bob")); err != nil {
+	id, _ := s.CreateUpload(ctx, store.NewUpload{
+		AccountID: acc.ID, Filename: "e2", StoredPath: "/tmp/e2", SHA256: "sha", SizeBytes: 1,
+	})
+	if _, err := s.ApplySnapshot(ctx, id, members("alice", "bob"), snapshotTime(id), "test"); err != nil {
 		t.Fatalf("first apply: %v", err)
 	}
-	res, err := s.ApplySnapshot(ctx, id, members("alice", "bob"))
+	res, err := s.ApplySnapshot(ctx, id, members("alice", "bob"), snapshotTime(id), "test")
 	if err != nil {
 		t.Fatalf("second apply: %v", err)
 	}

@@ -402,7 +402,9 @@ func TestRunRequeuesUploadsInterruptedByRestart(t *testing.T) {
 	if err := os.WriteFile(path, exportJSON(t, "alice"), 0o644); err != nil {
 		t.Fatalf("write orphan: %v", err)
 	}
-	id, err := st.CreateUpload(ctx, acc.ID, "orphan.json", path, "sha", 10, false)
+	id, err := st.CreateUpload(ctx, store.NewUpload{
+		AccountID: acc.ID, Filename: "orphan.json", StoredPath: path, SHA256: "sha", SizeBytes: 10,
+	})
 	if err != nil {
 		t.Fatalf("create upload: %v", err)
 	}
