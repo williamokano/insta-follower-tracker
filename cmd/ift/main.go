@@ -53,7 +53,11 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer st.Close()
+	defer func() {
+		if err := st.Close(); err != nil {
+			log.Error("closing the database failed", "error", err)
+		}
+	}()
 
 	svc, err := tracker.New(st, tracker.Options{
 		UploadDir:      cfg.UploadDir(),

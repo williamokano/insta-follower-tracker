@@ -123,7 +123,15 @@ func (s *Service) writeUpload(path string, body io.Reader) (string, int64, error
 	if err != nil {
 		return "", 0, fmt.Errorf("create upload file: %w", err)
 	}
-	defer f.Close()
+	// Closing a file being written can surface a deferred write error, so the
+	// happy path closes explicitly and checks; this only covers the early
+	// returns below.
+	closed := false
+	defer func() {
+		if !closed {
+			_ = f.Close()
+		}
+	}()
 
 	src := body
 	if s.opts.MaxUploadBytes > 0 {
@@ -143,6 +151,10 @@ func (s *Service) writeUpload(path string, body io.Reader) (string, int64, error
 	}
 	if err := f.Sync(); err != nil {
 		return "", 0, fmt.Errorf("flush upload: %w", err)
+	}
+	closed = true
+	if err := f.Close(); err != nil {
+		return "", 0, fmt.Errorf("close upload: %w", err)
 	}
 
 	return hex.EncodeToString(hasher.Sum(nil)), size, nil
