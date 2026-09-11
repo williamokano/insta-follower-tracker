@@ -108,10 +108,12 @@ whole installation.
 1. Instagram → **Settings** → **Accounts Centre** → **Your information and
    permissions** → **Download your information**.
 2. Request a download. Select **Followers and following** (you can request
-   everything, the rest is ignored). **JSON** format is preferred; HTML exports
-   are not supported.
+   everything, the rest is ignored). Either **JSON** or **HTML** format works.
+   JSON is slightly better: it records the date each person followed you, which
+   the HTML format renders as localised prose and so is not read.
 3. When the archive arrives, upload the ZIP as-is. Alternatively, unzip it and
-   upload `connections/followers_and_following/followers_1.json`.
+   upload the `followers_1` file from the `followers_and_following` folder
+   (`.json` or `.html`, depending on the format you chose).
 
 Large accounts get the list split across `followers_1.json`, `followers_2.json`
 and so on. Uploading the ZIP handles that automatically.
@@ -156,7 +158,9 @@ curl -s 'http://localhost:8080/api/accounts/your.handle/diff' |
 - **Instagram handles are treated case-insensitively** and stored lowercased.
 - **The export does not name its owner**, which is why the account handle is
   asked for at upload time. One instance can track several accounts.
-- **HTML-format exports are not supported.** Request JSON.
+- **Follow dates are only read from JSON exports.** The HTML format writes them
+  in the account's own language, so they are left empty rather than guessed at.
+  They are display metadata and never affect a diff.
 
 ## Development
 
@@ -174,9 +178,11 @@ this is enforced on pull requests. Releases are cut by
 which derives the version, writes the changelog, tags the release and publishes
 the multi-arch image to GHCR as `X.Y.Z`, `X.Y`, `X` and `latest`.
 
-> **One-time setup:** GHCR creates new packages as private. After the first
-> successful release, open the package in GitHub and change its visibility to
-> public. No workflow permission can do this for you.
+The published package inherits this repository's visibility, because the image
+carries an `org.opencontainers.image.source` label that links it to the repo, so
+`v1.0.0` was pullable anonymously as soon as it was pushed. If you ever need to
+change that, package visibility is set on the package's own settings page — it is
+not something a workflow permission controls.
 
 ## Licence
 
