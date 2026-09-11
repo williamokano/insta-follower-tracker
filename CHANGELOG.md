@@ -1,3 +1,14 @@
+## [1.1.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.0.0...v1.1.0) (2026-09-11)
+
+### Features
+
+* **instagram:** accept the html download format ([3498d60](https://github.com/williamokano/insta-follower-tracker/commit/3498d607bb255cd8d472fb1e663c73f0f457ebc9))
+* **instagram:** accept the HTML download format ([#9](https://github.com/williamokano/insta-follower-tracker/issues/9)) ([975bbda](https://github.com/williamokano/insta-follower-tracker/commit/975bbdaec65074b07fca3732efc9b5bfbb7d2929))
+
+### Documentation
+
+* correct the note about GHCR package visibility ([300cefa](https://github.com/williamokano/insta-follower-tracker/commit/300cefab33608fc8c58cccefdba822623205a452))
+
 ## 1.0.0 (2026-09-11)
 
 ### Features
