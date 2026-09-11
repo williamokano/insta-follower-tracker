@@ -1,0 +1,27 @@
+services:
+  insta-follower-tracker:
+    image: ghcr.io/williamokano/insta-follower-tracker:latest
+    # To build from a checkout instead of pulling, comment out the image above
+    # and uncomment this.
+    # build: .
+    container_name: insta-follower-tracker
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      # Identity the process runs as. The data directory is chowned to match on
+      # startup, so bind-mounted files stay readable on the host.
+      PUID: 1000
+      PGID: 1000
+      TZ: Etc/UTC
+
+      IFT_DATA_DIR: /data
+      IFT_ADDR: ":8080"
+      IFT_MAX_UPLOAD_BYTES: 104857600
+      IFT_RETAIN_UPLOADS: "true"
+      IFT_LOG_LEVEL: info
+    volumes:
+      # The SQLite database and the uploaded exports both live here.
+      - ./data:/data
+      # If you prefer the /config convention, point IFT_DATA_DIR at it instead:
+      # - ./config:/config
