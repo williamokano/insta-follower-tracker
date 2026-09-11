@@ -9,14 +9,14 @@
 
   <form class="upload" method="post" action="/upload" enctype="multipart/form-data">
     <div class="field">
-      <label for="account">Instagram account</label>
-      <input id="account" name="account" list="known-accounts" required
-             placeholder="your.handle" autocomplete="off"
+      <label for="account">Instagram account <span class="optional">usually automatic</span></label>
+      <input id="account" name="account" list="known-accounts"
+             placeholder="read from the file" autocomplete="off"
              value="{{if .Account}}{{.Account.Handle}}{{end}}">
       <datalist id="known-accounts">
         {{range .Accounts}}<option value="{{.Handle}}"></option>{{end}}
       </datalist>
-      <small>The export does not name its owner, so tell us which account it belongs to.</small>
+      <small id="account-hint">Filled in from the export. Set it only if that is wrong.</small>
     </div>
 
     <div class="field">

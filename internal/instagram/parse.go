@@ -101,6 +101,9 @@ type Export struct {
 	TakenAt time.Time
 	// TakenAtSource names where TakenAt came from.
 	TakenAtSource string
+	// Owner is the account the export was generated for, when it says so.
+	// Empty otherwise: the follower list itself never identifies its owner.
+	Owner string
 }
 
 // Parse reads a follower list from an uploaded file. The archive form is

@@ -4,6 +4,9 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
+	"io/fs"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -396,4 +399,42 @@ func TestMissingFileLeavesLegacyDateAlone(t *testing.T) {
 	if after.Status != store.StatusCompleted {
 		t.Fatalf("status = %q: a missing file must not break startup", after.Status)
 	}
+}
+
+// countFiles counts regular files anywhere beneath dir.
+func countFiles(t *testing.T, dir string) int {
+	t.Helper()
+	n := 0
+	err := filepath.WalkDir(dir, func(_ string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if !d.IsDir() {
+			n++
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("walk %s: %v", dir, err)
+	}
+	return n
+}
+
+// countFilesIn counts regular files in one subdirectory of dir.
+func countFilesIn(t *testing.T, dir, sub string) int {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(dir, sub))
+	if err != nil {
+		if os.IsNotExist(err) {
+			return 0
+		}
+		t.Fatalf("read %s: %v", sub, err)
+	}
+	n := 0
+	for _, e := range entries {
+		if !e.IsDir() {
+			n++
+		}
+	}
+	return n
 }
