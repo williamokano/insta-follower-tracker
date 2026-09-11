@@ -44,7 +44,7 @@ jobs:
       # v8 of the action is the one that speaks golangci-lint v2's config format,
       # and the pinned release must be built with a Go at least as new as the
       # version go.mod targets or it refuses to load the config.
-      - uses: golangci/golangci-lint-action@v8
+      - uses: golangci/golangci-lint-action@v9
         with:
           version: v2.13.2
 
