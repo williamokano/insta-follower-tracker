@@ -84,6 +84,10 @@ type AcceptOptions struct {
 	// Off by default, because such an export invents unfollows for everybody
 	// outside its window.
 	AllowPartial bool
+	// SnapshotDate overrides when the export was generated. Left zero, the
+	// date is read out of the archive. Useful for a file whose name and
+	// timestamps were lost in transit.
+	SnapshotDate time.Time
 }
 
 // Accept stores an uploaded export and queues it for background processing. It
@@ -107,7 +111,15 @@ func (s *Service) Accept(ctx context.Context, handle, filename string, body io.R
 		return store.Upload{}, err
 	}
 
-	id, err := s.store.CreateUpload(ctx, account.ID, sanitizeDisplayName(filename), path, sum, size, opts.AllowPartial)
+	id, err := s.store.CreateUpload(ctx, store.NewUpload{
+		AccountID:    account.ID,
+		Filename:     sanitizeDisplayName(filename),
+		StoredPath:   path,
+		SHA256:       sum,
+		SizeBytes:    size,
+		AllowPartial: opts.AllowPartial,
+		SnapshotDate: opts.SnapshotDate,
+	})
 	if err != nil {
 		_ = os.Remove(path)
 		return store.Upload{}, err

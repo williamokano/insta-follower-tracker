@@ -22,6 +22,11 @@ const (
 	ChangeUnfollowed ChangeType = "unfollowed"
 )
 
+// SourceProcessingOrder marks an execution whose date is not known from the
+// export, only from the order it happened to be processed in. Executions
+// recorded before export dates existed carry this.
+const SourceProcessingOrder = "processing order"
+
 // Account is one tracked Instagram handle.
 type Account struct {
 	ID        int64     `json:"id"`
@@ -62,6 +67,15 @@ type Upload struct {
 	// AllowPartial records that this upload was accepted despite looking like
 	// it covers only part of the follower list.
 	AllowPartial bool `json:"allow_partial"`
+	// SnapshotTakenAt is when the export was generated. Executions are ordered
+	// by this rather than by upload time, so an older export uploaded later
+	// still sorts into its rightful place.
+	SnapshotTakenAt *time.Time `json:"snapshot_taken_at"`
+	// SnapshotSource names where SnapshotTakenAt came from.
+	SnapshotSource string `json:"snapshot_source"`
+	// SnapshotDate is a date supplied at upload time, overriding whatever the
+	// archive says. Zero when none was given.
+	SnapshotDate time.Time `json:"-"`
 }
 
 // Member is one follower within a snapshot, as handed to ApplySnapshot.

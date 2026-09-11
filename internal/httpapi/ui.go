@@ -181,8 +181,15 @@ func (s *Server) handleUploadForm(w http.ResponseWriter, r *http.Request) {
 		filename = header.Filename
 	}
 
+	snapshotDate, err := formDate(r, "snapshot_date")
+	if err != nil {
+		s.redirectWithFlash(w, r, handle, err.Error(), "error")
+		return
+	}
+
 	upload, err := s.svc.Accept(r.Context(), handle, filename, file, tracker.AcceptOptions{
 		AllowPartial: formFlag(r, "allow_partial"),
+		SnapshotDate: snapshotDate,
 	})
 	if err != nil {
 		s.redirectWithFlash(w, r, handle, "Upload failed: "+err.Error(), "error")

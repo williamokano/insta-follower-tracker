@@ -7,6 +7,7 @@ import (
 	"path"
 	"regexp"
 	"sort"
+	"time"
 )
 
 // startHerePattern matches the export's own summary page, which newer
@@ -36,6 +37,7 @@ func parseArchive(r io.ReaderAt, size int64) (*Export, error) {
 	byName := make(map[string]*zip.File, len(zr.File))
 	nearMisses := make([]string, 0, 4)
 	var startHere *zip.File
+	var newestEntry time.Time
 
 	inspected := 0
 	for _, f := range zr.File {
@@ -45,6 +47,9 @@ func parseArchive(r io.ReaderAt, size int64) (*Export, error) {
 		}
 		if f.FileInfo().IsDir() {
 			continue
+		}
+		if mod := f.Modified.UTC(); mod.After(newestEntry) {
+			newestEntry = mod
 		}
 		if startHerePattern.MatchString(f.Name) {
 			startHere = f
@@ -92,7 +97,28 @@ func parseArchive(r io.ReaderAt, size int64) (*Export, error) {
 	}
 	all = dedupe(all)
 
-	return &Export{Followers: all, Coverage: archiveCoverage(startHere, budget)}, nil
+	export := &Export{Followers: all, Coverage: archiveCoverage(startHere, budget)}
+	export.TakenAt, export.TakenAtSource = archiveTakenAt(startHere, newestEntry, budget)
+	return export, nil
+}
+
+// archiveTakenAt establishes when an export was generated.
+//
+// What the export declares is preferred, being an explicit statement rather
+// than a file attribute. Older downloads say nothing, so the archive's own
+// timestamps carry those; on real exports the two agreed to the minute.
+func archiveTakenAt(startHere *zip.File, newestEntry time.Time, budget int64) (time.Time, string) {
+	if startHere != nil {
+		if body, _, err := readArchiveEntry(startHere, budget); err == nil {
+			if t, ok := takenAtFromMetadata(body); ok {
+				return t, SourceDeclared
+			}
+		}
+	}
+	if !newestEntry.IsZero() {
+		return newestEntry, SourceArchive
+	}
+	return time.Time{}, ""
 }
 
 // archiveCoverage reads the range the export declares about itself, when it
