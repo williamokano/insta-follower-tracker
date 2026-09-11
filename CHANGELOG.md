@@ -1,3 +1,10 @@
+## [1.3.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.2.0...v1.3.0) (2026-09-11)
+
+### Features
+
+* **tracker:** order executions by export date so old exports can be backfilled ([181bc6a](https://github.com/williamokano/insta-follower-tracker/commit/181bc6a952b8a8a44253ac96c12ea7d3967d9d33))
+* **tracker:** order executions by export date so old exports can be backfilled ([#11](https://github.com/williamokano/insta-follower-tracker/issues/11)) ([7e73b88](https://github.com/williamokano/insta-follower-tracker/commit/7e73b88ef855dca5a0136bbccbf8c434c564ff3c))
+
 ## [1.2.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.1.0...v1.2.0) (2026-09-11)
 
 ### Features
