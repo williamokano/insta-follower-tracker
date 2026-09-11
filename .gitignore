@@ -31,14 +31,16 @@ go.work.sum
 # .idea/
 # .vscode/
 
-# Build output
-bin/
-dist/
+# Build output. These are anchored to the repository root with a leading
+# slash: an unanchored pattern matches a directory of that name at any depth,
+# which would silently swallow source directories such as internal/config.
+/bin/
+/dist/
 
 # Local runtime data (sqlite db + uploaded exports)
-.localdata/
-data/
-config/
+/.localdata/
+/data/
+/config/
 
 # Node (semantic-release / commitlint only)
 node_modules/
