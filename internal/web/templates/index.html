@@ -1,0 +1,103 @@
+{{define "content"}}
+<section class="card">
+  <h1>Upload a follower export</h1>
+  <p class="hint">
+    Drop in the ZIP from Instagram's <em>Download your information</em>, or the
+    <code>followers_1.json</code> from inside it. The file is stored and processed
+    in the background, so this page will not wait for it.
+  </p>
+
+  <form class="upload" method="post" action="/upload" enctype="multipart/form-data">
+    <div class="field">
+      <label for="account">Instagram account</label>
+      <input id="account" name="account" list="known-accounts" required
+             placeholder="your.handle" autocomplete="off"
+             value="{{if .Account}}{{.Account.Handle}}{{end}}">
+      <datalist id="known-accounts">
+        {{range .Accounts}}<option value="{{.Handle}}"></option>{{end}}
+      </datalist>
+      <small>The export does not name its owner, so tell us which account it belongs to.</small>
+    </div>
+
+    <div class="field">
+      <label for="file">Export file</label>
+      <input id="file" name="file" type="file" accept=".zip,.json,application/zip,application/json" required>
+    </div>
+
+    <button type="submit">Upload</button>
+  </form>
+</section>
+
+{{if .Accounts}}
+<section class="card">
+  <h2>Accounts</h2>
+  <ul class="accounts">
+    {{range .Accounts}}
+      <li{{if and $.Account (eq .Handle $.Account.Handle)}} class="selected"{{end}}>
+        <a href="/?account={{.Handle}}">{{.Handle}}</a>
+        <span class="muted">{{.FollowerCount}} {{plural .FollowerCount "follower" "followers"}} · {{.UploadCount}} {{plural .UploadCount "execution" "executions"}}</span>
+      </li>
+    {{end}}
+  </ul>
+</section>
+{{end}}
+
+{{if .Account}}
+<section class="card" id="executions" data-account="{{.Account.Handle}}">
+  <div class="card-head">
+    <h2>Executions for {{.Account.Handle}}</h2>
+    {{if gt .CompletedCount 1}}
+      <a class="button-link" href="/accounts/{{.Account.Handle}}/diff">Overall diff →</a>
+    {{end}}
+  </div>
+
+  {{if .Uploads}}
+    <table class="executions">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Uploaded</th>
+          <th>File</th>
+          <th>Status</th>
+          <th class="num">Followers</th>
+          <th class="num">Followed</th>
+          <th class="num">Unfollowed</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Uploads}}
+          <tr class="execution" data-upload="{{.ID}}" data-status="{{.Status}}">
+            <td>{{deref .SequenceNo}}</td>
+            <td><time datetime="{{timestamp .UploadedAt}}">{{shortTime .UploadedAt}}</time></td>
+            <td class="filename" title="{{.OriginalFilename}}">{{.OriginalFilename}}</td>
+            <td>
+              <span class="status status-{{.Status}}">{{.Status}}</span>
+              {{if .ErrorMessage}}<small class="error">{{.ErrorMessage}}</small>{{end}}
+            </td>
+            <td class="num">{{if eq .Status "completed"}}{{.FollowerCount}}{{else}}—{{end}}</td>
+            <td class="num gain">{{if .IsBaseline}}—{{else if eq .Status "completed"}}{{signed .AddedCount}}{{else}}—{{end}}</td>
+            <td class="num loss">{{if .IsBaseline}}—{{else if eq .Status "completed"}}{{negated .RemovedCount}}{{else}}—{{end}}</td>
+            <td class="actions">
+              {{if eq .Status "completed"}}
+                <button type="button" class="toggle" aria-expanded="false" data-upload="{{.ID}}">Details</button>
+              {{end}}
+            </td>
+          </tr>
+          <tr class="detail-row" data-detail="{{.ID}}" hidden>
+            <td colspan="8"><div class="detail" data-loaded="false">Loading…</div></td>
+          </tr>
+        {{end}}
+      </tbody>
+    </table>
+    <p class="hint">
+      The first execution is the baseline: there is nothing before it to compare against,
+      so {{.CompletedCount}} processed {{plural .CompletedCount "execution gives" "executions give"}}
+      {{.DiffCount}} {{plural .DiffCount "diff" "diffs"}}.
+    </p>
+  {{else}}
+    <p class="empty">No executions yet. Upload an export above to get started.</p>
+  {{end}}
+</section>
+{{end}}
+{{end}}

@@ -95,29 +95,37 @@ func (h *harness) get(path string) (*http.Response, map[string]any) {
 	return resp, body
 }
 
-// upload posts a multipart form the way the browser form does.
-func (h *harness) upload(account, filename string, content []byte) (*http.Response, map[string]any) {
-	h.t.Helper()
+// multipartBody builds the same form the browser upload form submits.
+func multipartBody(t *testing.T, account, filename string, content []byte) (*bytes.Buffer, string) {
+	t.Helper()
 
 	var buf bytes.Buffer
 	mw := multipart.NewWriter(&buf)
 	if err := mw.WriteField("account", account); err != nil {
-		h.t.Fatalf("write account field: %v", err)
+		t.Fatalf("write account field: %v", err)
 	}
 	if filename != "" {
 		part, err := mw.CreateFormFile("file", filename)
 		if err != nil {
-			h.t.Fatalf("create file part: %v", err)
+			t.Fatalf("create file part: %v", err)
 		}
 		if _, err := part.Write(content); err != nil {
-			h.t.Fatalf("write file part: %v", err)
+			t.Fatalf("write file part: %v", err)
 		}
 	}
 	if err := mw.Close(); err != nil {
-		h.t.Fatalf("close writer: %v", err)
+		t.Fatalf("close writer: %v", err)
 	}
+	return &buf, mw.FormDataContentType()
+}
 
-	resp, err := h.server.Client().Post(h.server.URL+"/api/uploads", mw.FormDataContentType(), &buf)
+// upload posts a multipart form to the JSON API.
+func (h *harness) upload(account, filename string, content []byte) (*http.Response, map[string]any) {
+	h.t.Helper()
+
+	buf, contentType := multipartBody(h.t, account, filename, content)
+
+	resp, err := h.server.Client().Post(h.server.URL+"/api/uploads", contentType, buf)
 	if err != nil {
 		h.t.Fatalf("POST /api/uploads: %v", err)
 	}

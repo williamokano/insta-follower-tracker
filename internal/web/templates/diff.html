@@ -1,0 +1,69 @@
+{{define "content"}}
+<section class="card">
+  <div class="card-head">
+    <h1>Overall diff for {{.Account.Handle}}</h1>
+    <a class="button-link" href="/?account={{.Account.Handle}}">← Executions</a>
+  </div>
+
+  {{if .Diff}}
+    <form class="bounds" method="get" action="/accounts/{{.Account.Handle}}/diff">
+      <div class="field">
+        <label for="from">From execution</label>
+        <select id="from" name="from">
+          {{range .Executions}}
+            <option value="{{.ID}}" {{if eq .ID $.Diff.From.ID}}selected{{end}}>
+              #{{deref .SequenceNo}} · {{shortTime .UploadedAt}} · {{.FollowerCount}} followers
+            </option>
+          {{end}}
+        </select>
+      </div>
+      <div class="field">
+        <label for="to">To execution</label>
+        <select id="to" name="to">
+          {{range .Executions}}
+            <option value="{{.ID}}" {{if eq .ID $.Diff.To.ID}}selected{{end}}>
+              #{{deref .SequenceNo}} · {{shortTime .UploadedAt}} · {{.FollowerCount}} followers
+            </option>
+          {{end}}
+        </select>
+      </div>
+      <button type="submit">Compare</button>
+    </form>
+
+    <p class="hint callout">
+      <strong>Why four lists?</strong> Adding up the unfollows from each execution
+      overstates who is gone, because somebody can unfollow and later follow again.
+      <em>Lost</em> is a direct comparison of the two snapshots, so it counts only
+      people who really are not following now.
+    </p>
+
+    <div class="buckets">
+      {{template "bucket" dict "Title" "Lost" "Class" "loss" "Blurb" "Followed you at the start, does not now." "Items" .Diff.Lost}}
+      {{template "bucket" dict "Title" "Gained" "Class" "gain" "Blurb" "Not there at the start, follows you now." "Items" .Diff.Gained}}
+      {{template "bucket" dict "Title" "Returned" "Class" "warn" "Blurb" "Unfollowed somewhere in between, but is back." "Items" .Diff.Returned}}
+      {{template "bucket" dict "Title" "Transient" "Class" "muted-bucket" "Blurb" "Seen only in the middle, absent at both ends." "Items" .Diff.Transient}}
+    </div>
+  {{else}}
+    <p class="empty">
+      This account needs at least two processed executions before an overall
+      diff means anything.
+    </p>
+  {{end}}
+</section>
+{{end}}
+
+{{define "bucket"}}
+<div class="bucket {{.Class}}">
+  <h3>{{.Title}} <span class="count">{{len .Items}}</span></h3>
+  <p class="blurb">{{.Blurb}}</p>
+  {{if .Items}}
+    <ul class="people">
+      {{range .Items}}
+        <li><a href="{{profileURL .Username}}" target="_blank" rel="noopener noreferrer">{{.Username}}</a></li>
+      {{end}}
+    </ul>
+  {{else}}
+    <p class="empty">Nobody.</p>
+  {{end}}
+</div>
+{{end}}

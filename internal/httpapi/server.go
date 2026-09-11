@@ -5,6 +5,7 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"html/template"
 	"log/slog"
 	"net/http"
 	"strconv"
@@ -27,10 +28,11 @@ type Options struct {
 
 // Server routes HTTP requests to the tracker.
 type Server struct {
-	svc  *tracker.Service
-	opts Options
-	log  *slog.Logger
-	mux  *http.ServeMux
+	svc       *tracker.Service
+	opts      Options
+	log       *slog.Logger
+	mux       *http.ServeMux
+	templates map[string]*template.Template
 }
 
 // New builds a Server with all routes registered.

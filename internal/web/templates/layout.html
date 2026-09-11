@@ -1,0 +1,33 @@
+{{define "layout"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · Follower Tracker</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>📉</text></svg>">
+</head>
+<body>
+  <header class="topbar">
+    <a class="brand" href="/">Follower&nbsp;Tracker</a>
+    {{if .Account}}
+      <nav class="tabs">
+        <a href="/?account={{.Account.Handle}}" class="{{if eq .Page "index"}}active{{end}}">Executions</a>
+        <a href="/accounts/{{.Account.Handle}}/diff" class="{{if eq .Page "diff"}}active{{end}}">Overall diff</a>
+      </nav>
+    {{end}}
+    <span class="version">{{.Version}}</span>
+  </header>
+
+  <main>
+    {{if .Flash}}<p class="flash {{.FlashKind}}">{{.Flash}}</p>{{end}}
+    {{template "content" .}}
+  </main>
+
+  <footer>
+    <p>Follower lists come from Instagram's own “Download your information” export. Nothing is scraped.</p>
+  </footer>
+
+  <script src="/static/app.js" defer></script>
+</body>
+</html>{{end}}
