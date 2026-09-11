@@ -119,9 +119,11 @@ whole installation.
    > few dozen names instead of hundreds. Compared against a full snapshot it
    > reports everybody else as having unfollowed. Such uploads are refused, but
    > it is much easier to request the download correctly than to notice later.
-3. When the archive arrives, upload the ZIP as-is. Alternatively, unzip it and
-   upload the `followers_1` file from the `followers_and_following` folder
-   (`.json` or `.html`, depending on the format you chose).
+3. When the archive arrives, upload the ZIP as-is — the account it belongs to is
+   read out of it, so there is usually nothing to type. Alternatively, unzip it
+   and upload the `followers_1` file from the `followers_and_following` folder
+   (`.json` or `.html`, depending on the format you chose); a bare file like that
+   names no account, so supply the handle yourself.
 
 Large accounts get the list split across `followers_1.json`, `followers_2.json`
 and so on. Uploading the ZIP handles that automatically.
@@ -138,7 +140,7 @@ and so on. Uploading the ZIP handles that automatically.
 
 | Method | Path | Description |
 | --- | --- | --- |
-| `POST` | `/api/uploads` | Multipart upload: `account` and `file`, plus optional `allow_partial=1` to accept a date-limited export and `snapshot_date=YYYY-MM-DD` to override the export date. Answers `202` with the queued execution. |
+| `POST` | `/api/uploads` | Multipart upload: `file`, plus optional `account` (read from the export when omitted), `allow_partial=1` to accept a date-limited export, and `snapshot_date=YYYY-MM-DD` to override the export date. Answers `202` with the queued execution. |
 | `GET` | `/api/uploads/{id}` | One execution, including its processing status. |
 | `GET` | `/api/uploads/{id}/changes` | That execution's diff. Filter with `?type=followed` or `?type=unfollowed`. |
 | `GET` | `/api/accounts` | Every tracked account with headline counts. |
@@ -149,8 +151,8 @@ and so on. Uploading the ZIP handles that automatically.
 | `GET` | `/healthz` | Health, version, and the number of uploads still queued. |
 
 ```sh
-# Upload an export
-curl -F account=your.handle -F file=@instagram-export.zip \
+# Upload an export. The account is read from the archive.
+curl -F file=@instagram-you-2026-09-11-abc123.zip \
   http://localhost:8080/api/uploads
 
 # Who is actually gone
@@ -192,8 +194,11 @@ curl -F account=your.handle -F file=@instagram-you-2026-09-11-xyz.zip \
   the archive's own timestamps, then the date in the file name. Set *Export date*
   on the upload form to override a wrong guess.
 - **Instagram handles are treated case-insensitively** and stored lowercased.
-- **The export does not name its owner**, which is why the account handle is
-  asked for at upload time. One instance can track several accounts.
+- **The account is read from the export** where it says so: from the archive's
+  file name, or from the summary page inside it if the file was renamed. Enter a
+  handle only when neither does, or to override it — useful if you have renamed
+  the account since the export was taken. One instance can track several
+  accounts.
 - **Date-limited exports are refused.** Two checks: the date range newer
   downloads declare in `start_here.html`, and a fall in follower count too steep
   to be real (more than half, on accounts above 25 followers). Tick *Accept a

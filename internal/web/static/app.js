@@ -142,6 +142,41 @@
     setInterval(refresh, 3000);
   }
 
+  // Instagram names a download instagram-<handle>-<date>-<hash>.zip, so the
+  // account can be filled in the moment a file is chosen rather than typed.
+  // The server reads it from the archive too, for files that were renamed; this
+  // only saves the round trip and shows what will happen.
+  const ARCHIVE_NAME = /^instagram-([a-z0-9._]+)-\d{4}-\d{2}-\d{2}-[a-z0-9]+$/i;
+
+  const fileInput = document.getElementById("file");
+  const accountInput = document.getElementById("account");
+  const accountHint = document.getElementById("account-hint");
+
+  if (fileInput && accountInput) {
+    fileInput.addEventListener("change", function () {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+
+      const match = ARCHIVE_NAME.exec(file.name.replace(/\.zip$/i, ""));
+      if (!match) return;
+
+      // Never overwrite a handle the person chose themselves.
+      if (accountInput.value.trim() !== "" && accountInput.dataset.autofilled !== "true") {
+        return;
+      }
+
+      accountInput.value = match[1].toLowerCase();
+      accountInput.dataset.autofilled = "true";
+      if (accountHint) {
+        accountHint.textContent = "Read from the file name. Change it if that is wrong.";
+      }
+    });
+
+    accountInput.addEventListener("input", function () {
+      accountInput.dataset.autofilled = "false";
+    });
+  }
+
   // Give immediate feedback on submit, since the upload itself can take a moment
   // even though processing does not.
   const uploadForm = document.querySelector("form.upload");

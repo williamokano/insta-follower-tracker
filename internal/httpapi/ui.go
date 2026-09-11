@@ -163,11 +163,8 @@ func (s *Server) handleUploadForm(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// Left blank, the account is read from the export.
 	handle := store.NormalizeHandle(r.FormValue("account"))
-	if handle == "" {
-		s.redirectWithFlash(w, r, "", "An account handle is required.", "error")
-		return
-	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {

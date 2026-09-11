@@ -17,6 +17,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/williamokano/insta-follower-tracker/internal/instagram"
 	"github.com/williamokano/insta-follower-tracker/internal/store"
 )
 
@@ -94,21 +95,42 @@ type AcceptOptions struct {
 // returns as soon as the file is on disk and the queue row exists: parsing
 // happens later on the worker.
 func (s *Service) Accept(ctx context.Context, handle, filename string, body io.Reader, opts AcceptOptions) (store.Upload, error) {
-	account, err := s.store.EnsureAccount(ctx, handle)
+	// The file is stored first, so that an unnamed account can be read out of
+	// it. Until the account is known the upload lives in a staging directory.
+	staging := filepath.Join(s.opts.UploadDir, stagingDir)
+	if err := os.MkdirAll(staging, 0o755); err != nil {
+		return store.Upload{}, fmt.Errorf("create staging dir: %w", err)
+	}
+
+	stagedPath := filepath.Join(staging, s.uploadFilename(filename))
+	sum, size, err := s.writeUpload(stagedPath, body)
 	if err != nil {
+		_ = os.Remove(stagedPath)
+		return store.Upload{}, err
+	}
+
+	resolved, err := s.resolveHandle(handle, filename, stagedPath)
+	if err != nil {
+		_ = os.Remove(stagedPath)
+		return store.Upload{}, err
+	}
+
+	account, err := s.store.EnsureAccount(ctx, resolved)
+	if err != nil {
+		_ = os.Remove(stagedPath)
 		return store.Upload{}, err
 	}
 
 	dir := filepath.Join(s.opts.UploadDir, account.Handle)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
+		_ = os.Remove(stagedPath)
 		return store.Upload{}, fmt.Errorf("create account upload dir: %w", err)
 	}
 
-	path := filepath.Join(dir, s.uploadFilename(filename))
-	sum, size, err := s.writeUpload(path, body)
-	if err != nil {
-		_ = os.Remove(path)
-		return store.Upload{}, err
+	path := filepath.Join(dir, filepath.Base(stagedPath))
+	if err := os.Rename(stagedPath, path); err != nil {
+		_ = os.Remove(stagedPath)
+		return store.Upload{}, fmt.Errorf("move upload into place: %w", err)
 	}
 
 	id, err := s.store.CreateUpload(ctx, store.NewUpload{
@@ -134,6 +156,39 @@ func (s *Service) Accept(ctx context.Context, handle, filename string, body io.R
 	s.log.Info("upload accepted",
 		"upload_id", up.ID, "account", account.Handle, "filename", up.OriginalFilename, "bytes", size)
 	return up, nil
+}
+
+// stagingDir holds an upload between being written and the account it belongs
+// to being known.
+const stagingDir = ".incoming"
+
+// resolveHandle works out which account an upload belongs to.
+//
+// A handle typed by the person uploading always wins. Otherwise it is read from
+// the export: first the archive's file name, which is how a fresh download
+// arrives, then the summary page inside it, which survives the file being
+// renamed. Only the small summary page is read here; parsing the follower list
+// remains the worker's job.
+func (s *Service) resolveHandle(handle, filename, storedPath string) (string, error) {
+	if h := store.NormalizeHandle(handle); h != "" {
+		return h, nil
+	}
+
+	if h, ok := instagram.FilenameHandle(filename); ok {
+		return h, nil
+	}
+
+	if f, err := os.Open(storedPath); err == nil {
+		defer f.Close()
+		if info, err := f.Stat(); err == nil {
+			if h, ok := instagram.OwnerFromArchive(f, info.Size()); ok {
+				return h, nil
+			}
+		}
+	}
+
+	return "", errors.New("could not tell which account this export belongs to: " +
+		"the file name does not carry it and the archive does not say. Enter the account handle and upload again")
 }
 
 // writeUpload streams body to path, hashing as it goes, and enforces the size

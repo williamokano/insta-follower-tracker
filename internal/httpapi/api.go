@@ -37,12 +37,9 @@ func (s *Server) handleCreateUpload(w http.ResponseWriter, r *http.Request) {
 		}
 	}()
 
+	// The account may be left out: it is read from the export when the export
+	// says who it belongs to.
 	handle := strings.TrimSpace(r.FormValue("account"))
-	if handle == "" {
-		s.writeError(w, r, http.StatusBadRequest,
-			errors.New("an account handle is required, because the export does not identify its owner"))
-		return
-	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {

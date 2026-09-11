@@ -1,6 +1,7 @@
 package instagram_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -146,5 +147,77 @@ func TestCoverageRangeIsReported(t *testing.T) {
 	}
 	if days := export.Coverage.To.Sub(export.Coverage.From).Hours() / 24; days > instagram.NarrowWindowDays {
 		t.Fatalf("a window of %.0f days should not have been flagged", days)
+	}
+}
+
+// TestOwnerIsReadFromTheArchive covers filing an upload against the right
+// account without the person having to type it.
+func TestOwnerIsReadFromTheArchive(t *testing.T) {
+	archive := buildZip(t, map[string][]byte{
+		"start_here.html": fixture(t, "start_here_windowed.html"),
+		"connections/followers_and_following/followers_1.html": fixture(t, "followers_1.html"),
+	})
+
+	export, err := parseExport(t, archive)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if export.Owner != "example_account" {
+		t.Fatalf("owner = %q, want example_account", export.Owner)
+	}
+
+	// The same, without parsing the follower list.
+	owner, ok := instagram.OwnerFromArchive(bytes.NewReader(archive), int64(len(archive)))
+	if !ok || owner != "example_account" {
+		t.Fatalf("OwnerFromArchive = %q/%v, want example_account/true", owner, ok)
+	}
+}
+
+func TestOwnerIsAbsentFromOlderExports(t *testing.T) {
+	archive := buildZip(t, map[string][]byte{
+		"connections/followers_and_following/followers_1.html": fixture(t, "followers_1.html"),
+	})
+
+	export, err := parseExport(t, archive)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if export.Owner != "" {
+		t.Fatalf("owner = %q; an export without a summary page names nobody", export.Owner)
+	}
+}
+
+func TestArchiveNameIsParsed(t *testing.T) {
+	cases := map[string]struct {
+		handle string
+		date   string
+		ok     bool
+	}{
+		"instagram-example_account-2024-10-23-tQF9URpZ.zip": {"example_account", "2024-10-23", true},
+		"instagram-a.b.c-2026-09-11-Bb6qaTeR.zip":           {"a.b.c", "2026-09-11", true},
+		"instagram-example_account-2024-10-23-tQF9URpZ":     {"example_account", "2024-10-23", true},
+		"download (3).zip":              {"", "", false},
+		"followers_1.json":              {"", "", false},
+		"instagram-nodate-tQF9URpZ.zip": {"", "", false},
+	}
+
+	for name, want := range cases {
+		t.Run(name, func(t *testing.T) {
+			handle, okHandle := instagram.FilenameHandle(name)
+			date, okDate := instagram.FilenameDate(name)
+
+			if okHandle != want.ok || okDate != want.ok {
+				t.Fatalf("recognised = %v/%v, want %v", okHandle, okDate, want.ok)
+			}
+			if !want.ok {
+				return
+			}
+			if handle != want.handle {
+				t.Fatalf("handle = %q, want %q", handle, want.handle)
+			}
+			if got := date.Format("2006-01-02"); got != want.date {
+				t.Fatalf("date = %s, want %s", got, want.date)
+			}
+		})
 	}
 }

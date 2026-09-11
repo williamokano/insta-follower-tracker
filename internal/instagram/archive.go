@@ -99,7 +99,44 @@ func parseArchive(r io.ReaderAt, size int64) (*Export, error) {
 
 	export := &Export{Followers: all, Coverage: archiveCoverage(startHere, budget)}
 	export.TakenAt, export.TakenAtSource = archiveTakenAt(startHere, newestEntry, budget)
+	if startHere != nil {
+		if body, _, err := readArchiveEntry(startHere, budget); err == nil {
+			export.Owner, _ = ownerFromMetadata(body)
+		}
+	}
 	return export, nil
+}
+
+// OwnerFromArchive reads just the account an export belongs to, without parsing
+// the follower list.
+//
+// Intake needs the account before it can file an upload, and parsing is the
+// worker's job, so this reads the one small summary page and nothing else.
+func OwnerFromArchive(r io.ReaderAt, size int64) (string, bool) {
+	if size <= 0 {
+		return "", false
+	}
+	zr, err := zip.NewReader(r, size)
+	if err != nil {
+		return "", false
+	}
+
+	inspected := 0
+	for _, f := range zr.File {
+		inspected++
+		if inspected > MaxArchiveEntries {
+			return "", false
+		}
+		if f.FileInfo().IsDir() || !startHerePattern.MatchString(f.Name) {
+			continue
+		}
+		body, _, err := readArchiveEntry(f, MaxJSONBytes)
+		if err != nil {
+			return "", false
+		}
+		return ownerFromMetadata(body)
+	}
+	return "", false
 }
 
 // archiveTakenAt establishes when an export was generated.
