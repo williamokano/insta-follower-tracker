@@ -41,9 +41,12 @@ jobs:
         run: |
           go mod tidy
           git diff --exit-code -- go.mod go.sum
-      - uses: golangci/golangci-lint-action@v6
+      # v8 of the action is the one that speaks golangci-lint v2's config format,
+      # and the pinned release must be built with a Go at least as new as the
+      # version go.mod targets or it refuses to load the config.
+      - uses: golangci/golangci-lint-action@v8
         with:
-          version: v2.1.6
+          version: v2.13.2
 
   test:
     name: Test

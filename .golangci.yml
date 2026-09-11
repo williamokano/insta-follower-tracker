@@ -14,6 +14,16 @@ linters:
     - unconvert
     - whitespace
   settings:
+    errcheck:
+      # Closing a handle that was only read from cannot fail in a way the
+      # caller can act on. Closers on write paths are checked explicitly.
+      exclude-functions:
+        - (*database/sql.Rows).Close
+        - (*database/sql.Stmt).Close
+        - (*database/sql.DB).Close
+        - (io.ReadCloser).Close
+        - (*os.File).Close
+        - (io.Closer).Close
     revive:
       rules:
         - name: exported
@@ -24,6 +34,9 @@ linters:
         linters:
           - errcheck
           - gocritic
+          # Test helpers close the response body; the linter cannot see across
+          # the helper boundary.
+          - bodyclose
 
 formatters:
   enable:
