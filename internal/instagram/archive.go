@@ -4,8 +4,15 @@ import (
 	"archive/zip"
 	"fmt"
 	"io"
+	"path"
+	"regexp"
 	"sort"
 )
+
+// relatedListPattern matches the other relationship lists that sit beside the
+// follower list, so a failure can point at what was there instead.
+var relatedListPattern = regexp.MustCompile(
+	`(?i)(^|/)(following|close_friends|pending_follow_requests|recent_follow_requests|recently_unfollowed_profiles|blocked_profiles|restricted_profiles)\.(json|html?)$`)
 
 // parseArchive walks an export archive and merges every follower list it finds.
 //
@@ -21,6 +28,7 @@ func parseArchive(r io.ReaderAt, size int64) ([]Follower, error) {
 
 	names := make([]string, 0, len(zr.File))
 	byName := make(map[string]*zip.File, len(zr.File))
+	nearMisses := make([]string, 0, 4)
 
 	inspected := 0
 	for _, f := range zr.File {
@@ -28,7 +36,13 @@ func parseArchive(r io.ReaderAt, size int64) ([]Follower, error) {
 		if inspected > MaxArchiveEntries {
 			return nil, fmt.Errorf("archive contains more than %d entries", MaxArchiveEntries)
 		}
-		if f.FileInfo().IsDir() || !followersFilePattern.MatchString(f.Name) {
+		if f.FileInfo().IsDir() {
+			continue
+		}
+		if !followersFilePattern.MatchString(f.Name) {
+			if len(nearMisses) < 4 && relatedListPattern.MatchString(f.Name) {
+				nearMisses = append(nearMisses, path.Base(f.Name))
+			}
 			continue
 		}
 		names = append(names, f.Name)
@@ -36,7 +50,7 @@ func parseArchive(r io.ReaderAt, size int64) ([]Follower, error) {
 	}
 
 	if len(names) == 0 {
-		return nil, ErrNoFollowers
+		return nil, &ArchiveContentsError{Entries: inspected, NearMisses: nearMisses}
 	}
 	// followers_1.json before followers_2.json, so parts merge predictably.
 	sort.Strings(names)
@@ -53,7 +67,7 @@ func parseArchive(r io.ReaderAt, size int64) ([]Follower, error) {
 		}
 		budget -= used
 
-		followers, err := parseJSON(body)
+		followers, err := parseDocument(body)
 		if err != nil {
 			// A single unreadable part should not discard the others; only
 			// report failure if nothing at all could be parsed.

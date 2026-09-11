@@ -20,6 +20,35 @@ import (
 // follower list, which almost always means the wrong file was uploaded.
 var ErrNoFollowers = errors.New("no follower list found in this file")
 
+// ArchiveContentsError explains why an archive yielded no follower list, by
+// naming what it actually held.
+//
+// The bare sentinel is useless to somebody holding a real export: it says the
+// file is wrong without saying what would be right. Listing the entries that
+// were nearly matches turns a support question into a self-diagnosis.
+type ArchiveContentsError struct {
+	// Entries is how many members the archive had.
+	Entries int
+	// NearMisses are entry names that look related but are not the follower
+	// list, such as following or close_friends.
+	NearMisses []string
+}
+
+func (e *ArchiveContentsError) Error() string {
+	msg := fmt.Sprintf(
+		"no follower list found: searched %d archive entries for followers_*.json or followers_*.html and found none",
+		e.Entries)
+	if len(e.NearMisses) > 0 {
+		msg += fmt.Sprintf(" (the archive does contain %s, which are different lists)",
+			strings.Join(e.NearMisses, ", "))
+	}
+	return msg
+}
+
+// Unwrap keeps errors.Is(err, ErrNoFollowers) working for callers that only
+// care that the upload was not a follower list.
+func (e *ArchiveContentsError) Unwrap() error { return ErrNoFollowers }
+
 // Limits applied while reading an upload. They bound the work a hostile or
 // simply malformed archive can cause.
 const (
@@ -32,9 +61,14 @@ const (
 )
 
 // followersFilePattern matches the follower list inside an export, at any depth.
-// Real exports place it at connections/followers_and_following/followers_1.json
-// and split very large lists across followers_2.json, followers_3.json and so on.
-var followersFilePattern = regexp.MustCompile(`(?i)(^|/)followers(_\d+)?\.json$`)
+// Real exports place it under followers_and_following/ as followers_1 and split
+// very large lists across followers_2, followers_3 and so on. Both the JSON and
+// the HTML download formats are accepted.
+//
+// The anchor on "followers" matters: the same directory holds following,
+// close_friends, pending_follow_requests and recently_unfollowed_profiles, none
+// of which are the follower list.
+var followersFilePattern = regexp.MustCompile(`(?i)(^|/)followers(_\d+)?\.(json|html?)$`)
 
 // Follower is one account from a follower list.
 type Follower struct {
@@ -70,11 +104,21 @@ func Parse(r io.ReaderAt, size int64) ([]Follower, error) {
 	if err != nil {
 		return nil, err
 	}
-	followers, err := parseJSON(body)
+	followers, err := parseDocument(body)
 	if err != nil {
 		return nil, err
 	}
 	return dedupe(followers), nil
+}
+
+// parseDocument reads one follower list, in whichever of the two download
+// formats it happens to be. The format is detected from the content, so a file
+// renamed on the way out of the archive still parses.
+func parseDocument(body []byte) ([]Follower, error) {
+	if looksLikeHTML(body) {
+		return parseHTMLExport(body)
+	}
+	return parseJSON(body)
 }
 
 // isZip checks for the local file header magic that starts every zip archive.

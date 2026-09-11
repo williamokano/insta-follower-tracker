@@ -108,10 +108,12 @@ whole installation.
 1. Instagram → **Settings** → **Accounts Centre** → **Your information and
    permissions** → **Download your information**.
 2. Request a download. Select **Followers and following** (you can request
-   everything, the rest is ignored). **JSON** format is preferred; HTML exports
-   are not supported.
+   everything, the rest is ignored). Either **JSON** or **HTML** format works.
+   JSON is slightly better: it records the date each person followed you, which
+   the HTML format renders as localised prose and so is not read.
 3. When the archive arrives, upload the ZIP as-is. Alternatively, unzip it and
-   upload `connections/followers_and_following/followers_1.json`.
+   upload the `followers_1` file from the `followers_and_following` folder
+   (`.json` or `.html`, depending on the format you chose).
 
 Large accounts get the list split across `followers_1.json`, `followers_2.json`
 and so on. Uploading the ZIP handles that automatically.
@@ -156,7 +158,9 @@ curl -s 'http://localhost:8080/api/accounts/your.handle/diff' |
 - **Instagram handles are treated case-insensitively** and stored lowercased.
 - **The export does not name its owner**, which is why the account handle is
   asked for at upload time. One instance can track several accounts.
-- **HTML-format exports are not supported.** Request JSON.
+- **Follow dates are only read from JSON exports.** The HTML format writes them
+  in the account's own language, so they are left empty rather than guessed at.
+  They are display metadata and never affect a diff.
 
 ## Development
 
