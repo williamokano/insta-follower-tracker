@@ -65,7 +65,9 @@ func assetVersion() string {
 		}
 		defer f.Close()
 
-		fmt.Fprintf(sum, "%s\x00", path)
+		// A hash.Hash never reports a write error, by its own contract.
+		_, _ = fmt.Fprintf(sum, "%s\x00", path)
+
 		_, err = io.Copy(sum, f)
 		return err
 	})
