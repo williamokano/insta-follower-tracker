@@ -26,6 +26,16 @@ const (
 // service tracked before other lists were read.
 const DefaultListKind = "followers"
 
+// The list kinds this package reasons about by name. The full set and its
+// presentation live in the instagram package; these are the few that queries
+// here cross-reference, repeated rather than imported to keep storage from
+// depending on parsing.
+const (
+	ListKindFollowers = "followers"
+	ListKindFollowing = "following"
+	ListKindBlocked   = "blocked"
+)
+
 // ListTotals are one relationship list's numbers for one execution.
 type ListTotals struct {
 	Kind         string `json:"kind"`
@@ -113,6 +123,17 @@ type Change struct {
 	SequenceNo   *int64     `json:"sequence_no"`
 	PrevUploadID *int64     `json:"prev_upload_id"`
 	DetectedAt   time.Time  `json:"detected_at"`
+	// Reason says what the export could work out about a departure. Empty on
+	// arrivals, and on departures from lists other than followers.
+	Reason DepartureReason `json:"departure_reason,omitempty"`
+	// ReasonLabel is Reason in words, so a reader does not have to know the
+	// identifiers.
+	ReasonLabel string `json:"departure_label,omitempty"`
+	// RenamedTo is the name this account now goes by, when Reason is
+	// DepartureRenamed. RenamedFrom is the reverse, set on the arrival that
+	// turned out to be the same person.
+	RenamedTo   string `json:"renamed_to,omitempty"`
+	RenamedFrom string `json:"renamed_from,omitempty"`
 }
 
 // SnapshotResult reports what ApplySnapshot recorded for an execution.

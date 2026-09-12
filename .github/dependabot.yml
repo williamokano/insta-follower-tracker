@@ -1,9 +1,15 @@
 version: 2
+
+# open-pull-requests-limit defaults to 5 per ecosystem. github-actions hit that
+# exactly on the first run, and a truncated list of updates looks identical to a
+# complete one, so every ecosystem is given room to report everything it finds.
+
 updates:
   - package-ecosystem: gomod
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 20
     commit-message:
       prefix: "chore(deps)"
 
@@ -11,6 +17,7 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 20
     commit-message:
       prefix: "ci(deps)"
 
@@ -18,5 +25,6 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    open-pull-requests-limit: 20
     commit-message:
       prefix: "chore(docker)"

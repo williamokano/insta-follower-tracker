@@ -7,6 +7,19 @@
 
   const board = document.getElementById("executions");
 
+  /**
+   * What each classification means. The export records membership, never
+   * causation, so every one of these is an inference from the other lists in
+   * the same execution and the wording says so.
+   */
+  const REASON_HELP = {
+    you_blocked: "They are in your blocked list, so this is your own doing.",
+    unfollowed: "You still follow them, so the account is still there. They stopped following you.",
+    vanished: "They left your followers and your following list at once, which an unfollow cannot do. " +
+      "They blocked you, or the account was deactivated, deleted or banned \u2014 the export cannot say which.",
+    renamed: "The same follow date appears under a new name, so this is one account that was renamed.",
+  };
+
   /** Render a list of usernames, or a placeholder when there are none. */
   function peopleList(entries, emptyLabel) {
     if (!entries || entries.length === 0) {
@@ -26,6 +39,26 @@
       a.rel = "noopener noreferrer";
       a.textContent = entry.username;
       li.appendChild(a);
+
+      // What the export could work out about a departure, where it could work
+      // out anything. "unknown" is the honest default and saying so on every
+      // second name is noise, so it is left off.
+      if (entry.departure_label && entry.departure_reason !== "unknown") {
+        const tag = document.createElement("span");
+        tag.className = "why why-" + entry.departure_reason;
+        tag.textContent = entry.renamed_to
+          ? "now " + entry.renamed_to
+          : entry.departure_label;
+        tag.title = REASON_HELP[entry.departure_reason] || "";
+        li.appendChild(tag);
+      } else if (entry.renamed_from) {
+        const tag = document.createElement("span");
+        tag.className = "why why-renamed";
+        tag.textContent = "was " + entry.renamed_from;
+        tag.title = REASON_HELP.renamed;
+        li.appendChild(tag);
+      }
+
       ul.appendChild(li);
     }
     return ul;
