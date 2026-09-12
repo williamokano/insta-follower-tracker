@@ -197,6 +197,28 @@ func (s *Server) handleUploadFollowers(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// handleReprocess queues an account's executions to be read again from the
+// files kept on disk.
+func (s *Server) handleReprocess(w http.ResponseWriter, r *http.Request) {
+	account, ok := s.resolveAccount(w, r)
+	if !ok {
+		return
+	}
+
+	queued, err := s.svc.Reprocess(r.Context(), account.Handle)
+	if err != nil {
+		s.writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	s.writeJSON(w, r, http.StatusAccepted, map[string]any{
+		"account": account,
+		"queued":  queued,
+		"message": "Queued for rereading. Each execution keeps the data it has until its " +
+			"file has been read again, so nothing is lost if a file has gone missing.",
+	})
+}
+
 func (s *Server) handleListAccounts(w http.ResponseWriter, r *http.Request) {
 	accounts, err := s.svc.Store().ListAccounts(r.Context())
 	if err != nil {

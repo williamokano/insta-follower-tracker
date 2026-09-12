@@ -59,12 +59,24 @@ func (s *Service) drain(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+
+		// New uploads come first: somebody is waiting on those, while a reread
+		// is catching up on work already recorded.
 		processed, err := s.ProcessNext(ctx)
 		if err != nil {
 			s.log.Error("processing upload failed unexpectedly", "error", err)
 			return
 		}
-		if !processed {
+		if processed {
+			continue
+		}
+
+		reread, err := s.reprocessNext(ctx)
+		if err != nil {
+			s.log.Error("rereading an execution failed unexpectedly", "error", err)
+			return
+		}
+		if !reread {
 			return
 		}
 	}
@@ -92,19 +104,42 @@ func (s *Service) ProcessNext(ctx context.Context) (bool, error) {
 	return true, nil
 }
 
-func (s *Service) process(ctx context.Context, up store.Upload) error {
+// parseStored reads the file an execution was created from.
+func (s *Service) parseStored(up store.Upload) (*instagram.Export, error) {
 	f, err := os.Open(up.StoredPath)
 	if err != nil {
-		return fmt.Errorf("open stored upload: %w", err)
+		return nil, fmt.Errorf("open stored upload: %w", err)
 	}
 	defer f.Close()
 
 	info, err := f.Stat()
 	if err != nil {
-		return fmt.Errorf("stat stored upload: %w", err)
+		return nil, fmt.Errorf("stat stored upload: %w", err)
 	}
 
-	export, err := instagram.Parse(f, info.Size())
+	return instagram.Parse(f, info.Size())
+}
+
+// listSnapshots reshapes a parsed export for storage.
+func listSnapshots(export *instagram.Export) []store.ListSnapshot {
+	lists := make([]store.ListSnapshot, 0, len(export.Lists))
+	for _, kind := range export.Kinds() {
+		entries := export.Lists[kind]
+		members := make([]store.Member, 0, len(entries))
+		for _, fl := range entries {
+			members = append(members, store.Member{
+				Username:   fl.Username,
+				Href:       fl.Href,
+				FollowedAt: fl.FollowedAt,
+			})
+		}
+		lists = append(lists, store.ListSnapshot{Kind: string(kind), Members: members})
+	}
+	return lists
+}
+
+func (s *Service) process(ctx context.Context, up store.Upload) error {
+	export, err := s.parseStored(up)
 	if err != nil {
 		return err
 	}
@@ -127,19 +162,7 @@ func (s *Service) process(ctx context.Context, up store.Upload) error {
 	}
 
 	// Every list the export carried is recorded, each diffed independently.
-	lists := make([]store.ListSnapshot, 0, len(export.Lists))
-	for _, kind := range export.Kinds() {
-		entries := export.Lists[kind]
-		members := make([]store.Member, 0, len(entries))
-		for _, fl := range entries {
-			members = append(members, store.Member{
-				Username:   fl.Username,
-				Href:       fl.Href,
-				FollowedAt: fl.FollowedAt,
-			})
-		}
-		lists = append(lists, store.ListSnapshot{Kind: string(kind), Members: members})
-	}
+	lists := listSnapshots(export)
 
 	result, err := s.store.ApplySnapshot(ctx, up.ID, lists, takenAt, source)
 	if err != nil {

@@ -431,3 +431,58 @@ func (s *Store) AccountHistory(ctx context.Context, accountID int64) ([]Executio
 	}
 	return out, nil
 }
+
+// MarkForReprocess queues every processed execution of an account to be read
+// again from its retained file, and reports how many were queued.
+func (s *Store) MarkForReprocess(ctx context.Context, accountID int64) (int64, error) {
+	res, err := s.db.ExecContext(ctx, `
+		UPDATE uploads SET reprocess_at = ?
+		WHERE account_id = ? AND status = 'completed' AND reprocess_at IS NULL`,
+		time.Now().UTC().Unix(), accountID)
+	if err != nil {
+		return 0, fmt.Errorf("queue reprocessing: %w", err)
+	}
+	return res.RowsAffected()
+}
+
+// ClaimNextReprocess returns the next execution waiting to be read again.
+//
+// Unlike a new upload this does not change the execution's status: its recorded
+// data stays in force and stays visible until the reread succeeds, so a file
+// that has gone missing or stopped parsing costs nothing.
+func (s *Store) ClaimNextReprocess(ctx context.Context) (Upload, error) {
+	row := s.db.QueryRowContext(ctx,
+		`SELECT `+uploadColumns+` FROM uploads u JOIN accounts a ON a.id = u.account_id
+		 WHERE u.reprocess_at IS NOT NULL AND u.status = 'completed'
+		 ORDER BY u.reprocess_at, u.id LIMIT 1`)
+
+	up, err := scanUpload(row)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Upload{}, ErrNotFound
+	}
+	if err != nil {
+		return Upload{}, fmt.Errorf("select execution to reprocess: %w", err)
+	}
+	return up, nil
+}
+
+// FinishReprocess takes an execution off the reprocessing queue, whether the
+// reread succeeded or not: a file that cannot be read now will not read any
+// better on a retry, and retrying forever would spin.
+func (s *Store) FinishReprocess(ctx context.Context, uploadID int64) error {
+	if _, err := s.db.ExecContext(ctx,
+		`UPDATE uploads SET reprocess_at = NULL WHERE id = ?`, uploadID); err != nil {
+		return fmt.Errorf("clear reprocessing flag: %w", err)
+	}
+	return nil
+}
+
+// ReprocessCount reports how many executions are waiting to be read again.
+func (s *Store) ReprocessCount(ctx context.Context) (int, error) {
+	var n int
+	if err := s.db.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM uploads WHERE reprocess_at IS NOT NULL`).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count reprocessing: %w", err)
+	}
+	return n, nil
+}

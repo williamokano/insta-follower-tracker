@@ -116,7 +116,7 @@ privileges. Two mechanisms are supported:
 | `IFT_DATA_DIR` | `/data` | SQLite database and uploaded exports. Use `/config` if you prefer. |
 | `IFT_ADDR` | `:8080` | Listen address. |
 | `IFT_MAX_UPLOAD_BYTES` | `104857600` | Maximum upload size (100 MiB). |
-| `IFT_RETAIN_UPLOADS` | `true` | Keep raw exports after processing so they can be reprocessed. |
+| `IFT_RETAIN_UPLOADS` | `true` | Keep raw exports after processing so they can be read again. Turning this off means a future version cannot recover anything it learns to read. |
 | `IFT_LOG_LEVEL` | `info` | `debug`, `info`, `warn` or `error`. |
 | `PUID` / `PGID` | `1000` | User and group to run as. Container only. |
 
@@ -175,11 +175,12 @@ and so on. Uploading the ZIP handles that automatically.
 | `GET` | `/api/accounts/{handle}/uploads` | The account's executions. |
 | `GET` | `/api/accounts/{handle}/followers` | The current follower list. |
 | `GET` | `/api/accounts/{handle}/diff` | Overall diff. `?from=` and `?to=` accept `first`, `last` or an execution id; defaults to `first` and `last`. |
+| `POST` | `/api/accounts/{handle}/reprocess` | Read that account's stored exports again. Answers `202` with how many were queued. |
 | `GET` | `/api/accounts/{handle}/unfollowers` | Raw departure log across all executions. Over-reports by design. |
 
 Every endpoint that reads a list takes `?list=` to choose which one, defaulting
 to `followers`.
-| `GET` | `/healthz` | Health, version, and the number of uploads still queued. |
+| `GET` | `/healthz` | Health, version, and how many uploads are queued or being reread. |
 
 ```sh
 # Upload an export. The account is read from the archive.
@@ -190,6 +191,31 @@ curl -F file=@instagram-you-2026-09-11-abc123.zip \
 curl -s 'http://localhost:8080/api/accounts/your.handle/diff' |
   jq '.lost[].username'
 ```
+
+## Rereading stored exports
+
+Uploads are kept (`IFT_RETAIN_UPLOADS`, on by default), so when the service
+learns to read more of a file than it could before, the files you already
+uploaded can simply be read again. **Reread exports** on the executions page
+does that for an account, or:
+
+```sh
+curl -X POST http://localhost:8080/api/accounts/your.handle/reprocess
+```
+
+This is worth doing after upgrading across a version that understands more:
+executions recorded before the other relationship lists were read hold only
+their follower list, and very old ones carry only the order they happened to be
+processed in rather than a real export date. Both are in the stored file.
+
+Rereading cannot lose anything. An execution keeps the data it has, and stays in
+the history, until a fresh read of its file succeeds; the replacement is written
+in one transaction. A file that has gone missing, because retention was turned
+off, or that no longer parses, leaves that execution exactly as it was. Running
+it twice changes nothing, and a date you set by hand is never overwritten.
+
+It does not revisit whether an upload should have been accepted. The
+partial-export checks decide admission, and these uploads were admitted already.
 
 ## Backfilling old exports
 

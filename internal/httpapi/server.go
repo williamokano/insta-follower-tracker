@@ -69,6 +69,7 @@ func (s *Server) routes() error {
 	s.mux.HandleFunc("GET /api/accounts/{handle}/followers", s.handleAccountFollowers)
 	s.mux.HandleFunc("GET /api/accounts/{handle}/diff", s.handleAccountDiff)
 	s.mux.HandleFunc("GET /api/accounts/{handle}/unfollowers", s.handleAccountUnfollowers)
+	s.mux.HandleFunc("POST /api/accounts/{handle}/reprocess", s.handleReprocess)
 
 	return s.uiRoutes()
 }
@@ -107,10 +108,16 @@ func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
 		s.writeError(w, r, http.StatusServiceUnavailable, err)
 		return
 	}
+	rereading, err := s.svc.ReprocessPending(r.Context())
+	if err != nil {
+		s.writeError(w, r, http.StatusServiceUnavailable, err)
+		return
+	}
 	s.writeJSON(w, r, http.StatusOK, map[string]any{
-		"status":  "ok",
-		"version": s.opts.Version,
-		"pending": pending,
+		"status":    "ok",
+		"version":   s.opts.Version,
+		"pending":   pending,
+		"rereading": rereading,
 	})
 }
 

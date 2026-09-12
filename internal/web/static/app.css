@@ -203,6 +203,19 @@ button, .button-link {
 button:hover, .button-link:hover { filter: brightness(1.08); }
 button:disabled { opacity: 0.6; cursor: progress; }
 
+.inline-form { display: inline; }
+
+button.secondary {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  padding: 0.4rem 0.7rem;
+}
+
+button.secondary:hover { color: var(--text); border-color: var(--accent); filter: none; }
+
 button.toggle {
   background: transparent;
   border-color: var(--border);
