@@ -1,3 +1,10 @@
+## [1.8.2](https://github.com/williamokano/insta-follower-tracker/compare/v1.8.1...v1.8.2) (2026-09-12)
+
+### Bug Fixes
+
+* **docker:** give the healthcheck a reachable URL ([28def0d](https://github.com/williamokano/insta-follower-tracker/commit/28def0d8a339c3803ada91af00042ce271f8240d))
+* **docker:** give the healthcheck a reachable URL ([#21](https://github.com/williamokano/insta-follower-tracker/issues/21)) ([4c9581b](https://github.com/williamokano/insta-follower-tracker/commit/4c9581bbd753241ac997b37bcbbdd79f90bcb5c4))
+
 ## [1.8.1](https://github.com/williamokano/insta-follower-tracker/compare/v1.8.0...v1.8.1) (2026-09-12)
 
 ### Bug Fixes
