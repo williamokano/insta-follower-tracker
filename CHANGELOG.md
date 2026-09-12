@@ -1,3 +1,10 @@
+## [1.7.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.6.0...v1.7.0) (2026-09-12)
+
+### Features
+
+* **ui:** add a trends dashboard plotting each list over time ([6c3c748](https://github.com/williamokano/insta-follower-tracker/commit/6c3c74868780bbb9e92937d448daf118e25555bc)), closes [#14](https://github.com/williamokano/insta-follower-tracker/issues/14)
+* **ui:** add a trends dashboard plotting each list over time ([#18](https://github.com/williamokano/insta-follower-tracker/issues/18)) ([819c543](https://github.com/williamokano/insta-follower-tracker/commit/819c543d851b1e615fff2c829082f3c609d5cb17)), closes [#14](https://github.com/williamokano/insta-follower-tracker/issues/14)
+
 ## [1.6.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.5.0...v1.6.0) (2026-09-12)
 
 ### Features
