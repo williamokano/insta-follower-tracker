@@ -1,3 +1,10 @@
+## [1.9.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.8.3...v1.9.0) (2026-09-12)
+
+### Features
+
+* **tracker:** explain why followers left, and move everything to current versions ([#23](https://github.com/williamokano/insta-follower-tracker/issues/23)) ([dfcdd54](https://github.com/williamokano/insta-follower-tracker/commit/dfcdd54e518fb6d8179686e1f23ee2d9dc78eda3))
+* **tracker:** say what the export can work out about why somebody left ([3c59f81](https://github.com/williamokano/insta-follower-tracker/commit/3c59f8194911f83273f3a503c16d30feb0f70a7d))
+
 ## [1.8.3](https://github.com/williamokano/insta-follower-tracker/compare/v1.8.2...v1.8.3) (2026-09-12)
 
 ### Bug Fixes
