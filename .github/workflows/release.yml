@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-go@v5
+      - uses: actions/setup-go@v7
         with:
           go-version: "1.27.1"
           cache: true
@@ -40,18 +40,22 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: true
+      # Node 24 is the current LTS. semantic-release 25 declares
+      # "^22.14.0 || >= 24.10.0" and its plugins "^22.22.2 || >=24.15", so the
+      # newest Current release would also satisfy them, but a release pipeline
+      # is the wrong place to track a line that still takes breaking changes.
       - uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
       - name: Run semantic-release
         id: semantic
-        uses: cycjimmy/semantic-release-action@v4
+        uses: cycjimmy/semantic-release-action@v6
         with:
-          semantic_version: 24
+          semantic_version: 25
           extra_plugins: |
-            @semantic-release/changelog@6
-            @semantic-release/git@10
-            conventional-changelog-conventionalcommits@8
+            @semantic-release/changelog@7
+            @semantic-release/git@11
+            conventional-changelog-conventionalcommits@10
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
