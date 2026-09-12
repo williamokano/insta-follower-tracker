@@ -1,3 +1,10 @@
+## [1.8.1](https://github.com/williamokano/insta-follower-tracker/compare/v1.8.0...v1.8.1) (2026-09-12)
+
+### Bug Fixes
+
+* **ui:** straighten the upload form and hide the failure reason until asked ([d28a3e6](https://github.com/williamokano/insta-follower-tracker/commit/d28a3e6dcb29f02e1ecb63d6810783d788890f82))
+* **ui:** straighten the upload form and hide the failure reason until asked ([#20](https://github.com/williamokano/insta-follower-tracker/issues/20)) ([854bf10](https://github.com/williamokano/insta-follower-tracker/commit/854bf1061d49031f6a2a0f00f23895ecae23590d))
+
 ## [1.8.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.7.0...v1.8.0) (2026-09-12)
 
 ### Features
