@@ -225,7 +225,12 @@ func recomputeListsBetween(ctx context.Context, tx *sql.Tx, accountID, uploadID,
 			return fmt.Errorf("update list counts: %w", err)
 		}
 	}
-	return nil
+
+	// Why each departure happened, as far as the other lists in the same pair
+	// of executions can say. It runs once the changes are in place, because it
+	// reads them. A recompute clears every change for the account first, so
+	// this reclassifies the whole history rather than only the newest pair.
+	return classifyDepartures(ctx, tx, uploadID, prevUploadID)
 }
 
 // syncFollowerColumns mirrors the follower list's totals onto the upload row,

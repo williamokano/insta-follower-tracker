@@ -163,10 +163,13 @@ func (s *Store) ChangesForUpload(ctx context.Context, uploadID int64, listKind s
 	if listKind == "" {
 		listKind = DefaultListKind
 	}
-	query := `SELECT u.username, u.href, c.change_type, c.upload_id, cu.sequence_no, c.prev_upload_id, c.created_at
+	query := `SELECT u.username, u.href, c.change_type, c.upload_id, cu.sequence_no, c.prev_upload_id,
+		       c.created_at, c.departure_reason, tonow.username, wasbefore.username
 		FROM changes c
 		JOIN users u ON u.id = c.user_id
 		JOIN uploads cu ON cu.id = c.upload_id
+		LEFT JOIN users tonow ON tonow.id = c.renamed_to_user_id
+		LEFT JOIN users wasbefore ON wasbefore.id = c.renamed_from_user_id
 		WHERE c.upload_id = ? AND c.list_kind = ?`
 	args := []any{uploadID, listKind}
 	if kind != "" {
@@ -186,10 +189,12 @@ func (s *Store) AllUnfollowers(ctx context.Context, accountID int64, listKind st
 		listKind = DefaultListKind
 	}
 	return s.scanChanges(ctx, `SELECT u.username, u.href, c.change_type, c.upload_id, cu.sequence_no,
-		       c.prev_upload_id, c.created_at
+		       c.prev_upload_id, c.created_at, c.departure_reason, tonow.username, wasbefore.username
 		FROM changes c
 		JOIN users u ON u.id = c.user_id
 		JOIN uploads cu ON cu.id = c.upload_id
+		LEFT JOIN users tonow ON tonow.id = c.renamed_to_user_id
+		LEFT JOIN users wasbefore ON wasbefore.id = c.renamed_from_user_id
 		WHERE c.account_id = ? AND c.list_kind = ? AND c.change_type = 'unfollowed'
 		ORDER BY cu.sequence_no, u.username`, accountID, listKind)
 }
@@ -233,14 +238,27 @@ func (s *Store) scanChanges(ctx context.Context, query string, args ...any) ([]C
 	out := []Change{}
 	for rows.Next() {
 		var (
-			c         Change
-			createdAt int64
+			c           Change
+			createdAt   int64
+			reason      *string
+			renamedTo   *string
+			renamedFrom *string
 		)
 		if err := rows.Scan(&c.Username, &c.Href, &c.ChangeType, &c.UploadID,
-			&c.SequenceNo, &c.PrevUploadID, &createdAt); err != nil {
+			&c.SequenceNo, &c.PrevUploadID, &createdAt, &reason, &renamedTo, &renamedFrom); err != nil {
 			return nil, fmt.Errorf("scan change: %w", err)
 		}
 		c.DetectedAt = time.Unix(createdAt, 0).UTC()
+		if reason != nil {
+			c.Reason = DepartureReason(*reason)
+			c.ReasonLabel = c.Reason.Label()
+		}
+		if renamedTo != nil {
+			c.RenamedTo = *renamedTo
+		}
+		if renamedFrom != nil {
+			c.RenamedFrom = *renamedFrom
+		}
 		out = append(out, c)
 	}
 	return out, rows.Err()

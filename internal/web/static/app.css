@@ -503,6 +503,38 @@ button.toggle[aria-expanded="true"] { color: var(--text); border-color: var(--ac
 .people a { color: var(--accent); text-decoration: none; font-size: 0.875rem; }
 .people a:hover { text-decoration: underline; }
 
+.people li { display: flex; align-items: baseline; gap: 0.45rem; min-width: 0; }
+.people li a { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Why somebody left, where the export supports an answer. Deliberately quiet:
+   it annotates a name rather than competing with it, and every one of these is
+   an inference rather than something Instagram stated. */
+.why {
+  flex: none;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  padding: 0.05rem 0.35rem;
+  border-radius: 4px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+  cursor: help;
+}
+
+/* Only the two that actually tell you something get a colour: the account is
+   gone, or it is still there under another name. */
+.why-vanished {
+  color: var(--loss);
+  background: color-mix(in srgb, var(--loss) 10%, transparent);
+  border-color: color-mix(in srgb, var(--loss) 30%, transparent);
+}
+
+.why-renamed {
+  color: var(--warn);
+  background: color-mix(in srgb, var(--warn) 12%, transparent);
+  border-color: color-mix(in srgb, var(--warn) 32%, transparent);
+}
+
 /* Footer ------------------------------------------------------------------ */
 
 footer {
