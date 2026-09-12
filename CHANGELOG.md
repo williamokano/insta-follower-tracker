@@ -1,3 +1,10 @@
+## [1.5.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.4.0...v1.5.0) (2026-09-12)
+
+### Features
+
+* **ui:** show the follower list recorded by any execution ([1a16b84](https://github.com/williamokano/insta-follower-tracker/commit/1a16b8408bf4c4977b2d4781b58fbc2cf9993995)), closes [#12](https://github.com/williamokano/insta-follower-tracker/issues/12)
+* **ui:** show the follower list recorded by any execution ([#16](https://github.com/williamokano/insta-follower-tracker/issues/16)) ([af021a4](https://github.com/williamokano/insta-follower-tracker/commit/af021a46df7a475f60e6bff6400f9eb6c7e95bd4)), closes [#12](https://github.com/williamokano/insta-follower-tracker/issues/12)
+
 ## [1.4.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.3.0...v1.4.0) (2026-09-11)
 
 ### Features
