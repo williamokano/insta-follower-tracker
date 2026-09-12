@@ -1,3 +1,10 @@
+## [1.8.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.7.0...v1.8.0) (2026-09-12)
+
+### Features
+
+* **tracker:** read stored exports again without asking for them twice ([1699ecf](https://github.com/williamokano/insta-follower-tracker/commit/1699ecf26eab9460210421733fde25c6d5a4d5eb))
+* **tracker:** read stored exports again without asking for them twice ([#19](https://github.com/williamokano/insta-follower-tracker/issues/19)) ([7dbb25f](https://github.com/williamokano/insta-follower-tracker/commit/7dbb25fe0faf055cd9d9d2c27d99ad21b42ff450))
+
 ## [1.7.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.6.0...v1.7.0) (2026-09-12)
 
 ### Features
