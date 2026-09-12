@@ -191,6 +191,35 @@
       }
       const summary = await response.json();
 
+      // A refused export has no lists to show; what it has is a reason, and it
+      // belongs here rather than wrapped down the status column of the table.
+      if (summary.upload && summary.upload.status === "failed") {
+        container.textContent = "";
+
+        const panel = document.createElement("div");
+        panel.className = "failure";
+
+        const heading = document.createElement("h3");
+        heading.textContent = "This export was not recorded";
+        panel.appendChild(heading);
+
+        const reason = document.createElement("p");
+        panel.appendChild(reason);
+        // Error strings are written lowercase and unpunctuated, as Go wants them.
+        // Under a heading they read as a sentence, so present them as one.
+        const message = summary.upload.error_message;
+        if (message) {
+          const text = message[0].toUpperCase() + message.slice(1);
+          reason.textContent = /[.!?]$/.test(text) ? text : text + ".";
+        } else {
+          reason.textContent = "No reason was recorded.";
+        }
+
+        container.appendChild(panel);
+        container.dataset.loaded = "true";
+        return;
+      }
+
       const totals = {};
       const kinds = [];
       for (const entry of summary.lists || []) {

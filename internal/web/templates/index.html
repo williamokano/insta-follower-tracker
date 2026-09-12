@@ -8,34 +8,39 @@
   </p>
 
   <form class="upload" method="post" action="/upload" enctype="multipart/form-data">
-    <div class="field">
-      <label for="account">Instagram account <span class="optional">usually automatic</span></label>
-      <input id="account" name="account" list="known-accounts"
-             placeholder="read from the file" autocomplete="off"
-             value="{{if .Account}}{{.Account.Handle}}{{end}}">
-      <datalist id="known-accounts">
-        {{range .Accounts}}<option value="{{.Handle}}"></option>{{end}}
-      </datalist>
-      <small id="account-hint">Filled in from the export. Set it only if that is wrong.</small>
+    <div class="upload-fields">
+      <div class="field">
+        <label for="account">Instagram account <span class="optional">usually automatic</span></label>
+        <input id="account" name="account" list="known-accounts"
+               placeholder="read from the file" autocomplete="off"
+               value="{{if .Account}}{{.Account.Handle}}{{end}}">
+        <small id="account-hint">Filled in from the export. Set it only if that is wrong.</small>
+      </div>
+
+      <div class="field">
+        <label for="file">Export file</label>
+        <input id="file" name="file" type="file" accept=".zip,.json,application/zip,application/json" required>
+        <small>The ZIP as downloaded, or a single <code>followers_1</code> file.</small>
+      </div>
+
+      <div class="field">
+        <label for="snapshot_date">Export date <span class="optional">optional</span></label>
+        <input id="snapshot_date" name="snapshot_date" type="date">
+        <small>Read from the archive automatically. Set it only if that is wrong.</small>
+      </div>
     </div>
 
-    <div class="field">
-      <label for="file">Export file</label>
-      <input id="file" name="file" type="file" accept=".zip,.json,application/zip,application/json" required>
+    <div class="upload-actions">
+      <button type="submit">Upload</button>
+      <label class="checkbox" title="Only tick this if you know the export covers a limited date range and you want it recorded anyway.">
+        <input type="checkbox" name="allow_partial" value="1">
+        Accept a partial export
+      </label>
     </div>
 
-    <div class="field">
-      <label for="snapshot_date">Export date <span class="optional">optional</span></label>
-      <input id="snapshot_date" name="snapshot_date" type="date">
-      <small>Read from the archive automatically. Set it only if that is wrong.</small>
-    </div>
-
-    <button type="submit">Upload</button>
-
-    <label class="checkbox" title="Only tick this if you know the export covers a limited date range and you want it recorded anyway.">
-      <input type="checkbox" name="allow_partial" value="1">
-      Accept a partial export
-    </label>
+    <datalist id="known-accounts">
+      {{range .Accounts}}<option value="{{.Handle}}"></option>{{end}}
+    </datalist>
   </form>
 
   <p class="hint callout">
@@ -96,15 +101,15 @@
             <td>{{deref .SequenceNo}}</td>
             <td>
               {{if .SnapshotTakenAt}}
-                <time datetime="{{timestamp .SnapshotTakenAt.UTC}}">{{shortDate .SnapshotTakenAt.UTC}}</time>
-                {{if .SnapshotSource}}<small class="source">{{.SnapshotSource}}</small>{{end}}
+                <time datetime="{{timestamp .SnapshotTakenAt.UTC}}"
+                      {{if .SnapshotSource}}class="sourced" title="Date {{.SnapshotSource}}"{{end}}>{{shortDate .SnapshotTakenAt.UTC}}</time>
               {{else}}—{{end}}
             </td>
             <td><time datetime="{{timestamp .UploadedAt}}">{{shortTime .UploadedAt}}</time></td>
             <td class="filename" title="{{.OriginalFilename}}">{{.OriginalFilename}}</td>
             <td>
-              <span class="status status-{{.Status}}">{{.Status}}</span>
-              {{if .ErrorMessage}}<small class="error">{{.ErrorMessage}}</small>{{end}}
+              <span class="status status-{{.Status}}"
+                    {{if .ErrorMessage}}title="{{.ErrorMessage}}"{{end}}>{{.Status}}</span>
             </td>
             <td class="num">{{if eq .Status "completed"}}{{.FollowerCount}}{{else}}—{{end}}</td>
             <td class="num gain">{{if .IsBaseline}}—{{else if eq .Status "completed"}}{{signed .AddedCount}}{{else}}—{{end}}</td>
@@ -112,6 +117,8 @@
             <td class="actions">
               {{if eq .Status "completed"}}
                 <button type="button" class="toggle" aria-expanded="false" data-upload="{{.ID}}">Details</button>
+              {{else if eq .Status "failed"}}
+                <button type="button" class="toggle" aria-expanded="false" data-upload="{{.ID}}">Why?</button>
               {{end}}
             </td>
           </tr>
