@@ -66,6 +66,10 @@
   <div class="card-head">
     <h2>Executions for {{.Account.Handle}}</h2>
     {{if gt .CompletedCount 1}}
+      <form class="inline-form" method="post" action="/accounts/{{.Account.Handle}}/reprocess">
+        <button type="submit" class="secondary"
+                title="Read every stored export again. Useful after an upgrade that understands more of the file. Nothing is lost if a file has gone missing.">Reread exports</button>
+      </form>
       <a class="button-link" href="/accounts/{{.Account.Handle}}/trends">Trends →</a>
       <a class="button-link" href="/accounts/{{.Account.Handle}}/diff">Overall diff →</a>
     {{end}}

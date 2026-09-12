@@ -64,6 +64,7 @@ func (s *Server) uiRoutes() error {
 	s.mux.Handle("GET /static/", http.StripPrefix("/static/", static))
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("POST /upload", s.handleUploadForm)
+	s.mux.HandleFunc("POST /accounts/{handle}/reprocess", s.handleReprocessForm)
 	s.mux.HandleFunc("GET /accounts/{handle}/diff", s.handleDiffPage)
 	s.mux.HandleFunc("GET /accounts/{handle}/trends", s.handleTrends)
 
@@ -228,6 +229,26 @@ func (s *Server) redirectWithFlash(w http.ResponseWriter, r *http.Request, handl
 	target.RawQuery = query.Encode()
 
 	http.Redirect(w, r, target.String(), http.StatusSeeOther)
+}
+
+// handleReprocessForm backs the reread button and redirects, so a reload does
+// not queue the work twice.
+func (s *Server) handleReprocessForm(w http.ResponseWriter, r *http.Request) {
+	handle := store.NormalizeHandle(r.PathValue("handle"))
+
+	queued, err := s.svc.Reprocess(r.Context(), handle)
+	if err != nil {
+		s.redirectWithFlash(w, r, handle, "Could not queue rereading: "+err.Error(), "error")
+		return
+	}
+	if queued == 0 {
+		s.redirectWithFlash(w, r, handle, "There is nothing to read again.", "")
+		return
+	}
+
+	s.redirectWithFlash(w, r, handle, fmt.Sprintf(
+		"Reading %d %s again from the stored files. Each keeps the data it has until that succeeds.",
+		queued, map[bool]string{true: "execution", false: "executions"}[queued == 1]), "")
 }
 
 // handleDiffPage renders the first-to-last comparison, which is the view that

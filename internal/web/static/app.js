@@ -283,15 +283,33 @@
 
   /** True while any execution is still queued or being processed. */
   function hasWorkInFlight(root) {
-    return root.querySelector(
+    if (root.querySelector(
       'tr.execution[data-status="pending"], tr.execution[data-status="processing"]'
-    ) !== null;
+    ) !== null) {
+      return true;
+    }
+    // A reread leaves the execution completed throughout, so its progress is
+    // not visible in the rows; ask the service instead.
+    return rereadingInFlight;
+  }
+
+  let rereadingInFlight = false;
+
+  function checkRereading() {
+    return fetch("/healthz", { headers: { Accept: "application/json" } })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        rereadingInFlight = Boolean(data && data.rereading > 0);
+      })
+      .catch(function () { rereadingInFlight = false; });
   }
 
   // Processing happens after the upload response, so the table has to catch up
   // on its own rather than making the user reload.
   async function refresh() {
-    if (!board || !hasWorkInFlight(board)) return;
+    if (!board) return;
+    await checkRereading();
+    if (!hasWorkInFlight(board)) return;
 
     try {
       const response = await fetch(window.location.href, {
