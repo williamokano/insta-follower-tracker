@@ -141,6 +141,38 @@ func (s *Server) handleUploadChanges(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, r, http.StatusOK, body)
 }
 
+// handleUploadFollowers returns the complete list an execution recorded, which
+// is the only thing there is to look at for a first upload.
+func (s *Server) handleUploadFollowers(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		s.writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	upload, err := s.svc.Store().Upload(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		s.writeError(w, r, http.StatusNotFound, errors.New("no such execution"))
+		return
+	}
+	if err != nil {
+		s.writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	followers, err := s.svc.Store().MembersForUpload(r.Context(), id)
+	if err != nil {
+		s.writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	s.writeJSON(w, r, http.StatusOK, map[string]any{
+		"upload":    upload,
+		"count":     len(followers),
+		"followers": followers,
+	})
+}
+
 func (s *Server) handleListAccounts(w http.ResponseWriter, r *http.Request) {
 	accounts, err := s.svc.Store().ListAccounts(r.Context())
 	if err != nil {

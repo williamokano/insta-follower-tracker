@@ -132,7 +132,9 @@ and so on. Uploading the ZIP handles that automatically.
 
 - **`/`** — upload form, the account list, and the execution history with the
   follower count and the follow/unfollow totals for each. Expanding a row shows
-  exactly who. The table refreshes itself while an upload is still processing.
+  exactly who followed and unfollowed, plus the complete list as it stood at that
+  point, with a filter. The first upload has no diff but still shows its list.
+  The table refreshes itself while an upload is still processing.
 - **`/accounts/{handle}/diff`** — the overall comparison, defaulting to the
   first and latest executions, with the four buckets described above.
 
@@ -143,6 +145,7 @@ and so on. Uploading the ZIP handles that automatically.
 | `POST` | `/api/uploads` | Multipart upload: `file`, plus optional `account` (read from the export when omitted), `allow_partial=1` to accept a date-limited export, and `snapshot_date=YYYY-MM-DD` to override the export date. Answers `202` with the queued execution. |
 | `GET` | `/api/uploads/{id}` | One execution, including its processing status. |
 | `GET` | `/api/uploads/{id}/changes` | That execution's diff. Filter with `?type=followed` or `?type=unfollowed`. |
+| `GET` | `/api/uploads/{id}/followers` | The complete list that execution recorded, available even for the first one. |
 | `GET` | `/api/accounts` | Every tracked account with headline counts. |
 | `GET` | `/api/accounts/{handle}/uploads` | The account's executions. |
 | `GET` | `/api/accounts/{handle}/followers` | The current follower list. |
@@ -187,7 +190,8 @@ curl -F account=your.handle -F file=@instagram-you-2026-09-11-xyz.zip \
 
 ## Notes and limitations
 
-- **The first upload has no diff.** It is the starting point.
+- **The first upload has no diff.** It is the starting point, though its
+  follower list is shown like any other execution's.
 - **Executions are ordered by when the export was generated**, not by when it
   was uploaded, so exports can be added in any order. The date is read from the
   archive: from the generation time newer downloads state about themselves, then

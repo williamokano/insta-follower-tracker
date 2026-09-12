@@ -500,3 +500,75 @@ func TestConcurrentUploadsAreAllQueued(t *testing.T) {
 		t.Fatalf("distinct sequence numbers = %d, want %d", len(seq), n)
 	}
 }
+
+// TestFirstUploadExposesItsFollowerList is the gap this closes: before, a
+// single upload gave you a count and nothing else.
+func TestFirstUploadExposesItsFollowerList(t *testing.T) {
+	h := newHarness(t, 0)
+
+	h.upload("acme", "e1.zip", exportZip(t, "alice", "bob", "carol"))
+	h.drain()
+
+	resp, body := h.get("/api/uploads/1/followers")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if body["count"].(float64) != 3 {
+		t.Fatalf("count = %v, want 3", body["count"])
+	}
+	assertNames(t, "followers", namesFrom(t, body, "followers"), []string{"alice", "bob", "carol"})
+
+	// The execution is still reported as the baseline; having a list to show
+	// does not make it comparable to anything.
+	_, changes := h.get("/api/uploads/1/changes")
+	if changes["is_baseline"] != true {
+		t.Fatal("the first execution is still the baseline")
+	}
+}
+
+// TestEveryExecutionExposesItsOwnList checks the list is per-execution rather
+// than always the newest one.
+func TestEveryExecutionExposesItsOwnList(t *testing.T) {
+	h := newHarness(t, 0)
+
+	h.upload("acme", "e1.zip", exportZip(t, "alice", "bob"))
+	h.drain()
+	h.upload("acme", "e2.zip", exportZip(t, "alice", "carol", "dave"))
+	h.drain()
+
+	_, first := h.get("/api/uploads/1/followers")
+	assertNames(t, "first execution", namesFrom(t, first, "followers"), []string{"alice", "bob"})
+
+	_, second := h.get("/api/uploads/2/followers")
+	assertNames(t, "second execution", namesFrom(t, second, "followers"), []string{"alice", "carol", "dave"})
+
+	// The account-level endpoint still answers with the latest.
+	_, current := h.get("/api/accounts/acme/followers")
+	assertNames(t, "current", namesFrom(t, current, "followers"), []string{"alice", "carol", "dave"})
+}
+
+func TestFollowerListForUnknownExecutionIs404(t *testing.T) {
+	h := newHarness(t, 0)
+
+	resp, _ := h.get("/api/uploads/999/followers")
+	if resp.StatusCode != http.StatusNotFound {
+		t.Fatalf("status = %d, want 404", resp.StatusCode)
+	}
+}
+
+// TestFollowerListOfARefusedExecutionIsEmpty: a refused upload records no
+// membership, and asking for it must not fail.
+func TestFollowerListOfARefusedExecutionIsEmpty(t *testing.T) {
+	h := newHarness(t, 0)
+
+	h.upload("acme", "bad.json", []byte(`{"nothing":"here"}`))
+	h.drain()
+
+	resp, body := h.get("/api/uploads/1/followers")
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+	if body["count"].(float64) != 0 {
+		t.Fatalf("count = %v, want 0", body["count"])
+	}
+}

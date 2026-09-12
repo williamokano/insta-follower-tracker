@@ -272,6 +272,18 @@ button.toggle[aria-expanded="true"] { color: var(--text); border-color: var(--ac
 .bucket.gain { border-top-color: var(--gain); }
 .bucket.warn { border-top-color: var(--warn); }
 .bucket.muted-bucket { border-top-color: var(--muted); }
+.bucket.members { border-top-color: var(--accent); }
+.bucket.members.wide { grid-column: 1 / -1; }
+.bucket.members.wide .people { grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr)); }
+
+.member-filter {
+  width: 100%;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.5rem;
+}
+
+.baseline-note { grid-column: 1 / -1; margin: 0 0 0.25rem; }
 
 .bucket h3 { display: flex; justify-content: space-between; align-items: baseline; }
 .count { font-variant-numeric: tabular-nums; color: var(--muted); font-weight: 600; }

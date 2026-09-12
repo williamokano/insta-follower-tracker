@@ -205,20 +205,21 @@ func (s *Store) scanChanges(ctx context.Context, query string, args ...any) ([]C
 	return out, rows.Err()
 }
 
-// CurrentFollowers returns the membership of the account's latest completed
+// MembersForUpload returns the complete follower list recorded by one
 // execution.
-func (s *Store) CurrentFollowers(ctx context.Context, accountID int64) ([]Follower, error) {
+//
+// Every execution stores its whole membership rather than only its deltas, so
+// this is a plain read: the list is as available for the first execution, which
+// has nothing to diff against, as for any later one.
+func (s *Store) MembersForUpload(ctx context.Context, uploadID int64) ([]Follower, error) {
 	rows, err := s.db.QueryContext(ctx, `
 		SELECT u.username, u.href, sm.followed_at
 		FROM snapshot_members sm
 		JOIN users u ON u.id = sm.user_id
-		WHERE sm.upload_id = (
-			SELECT id FROM uploads WHERE account_id = ? AND status = 'completed'
-			ORDER BY sequence_no DESC LIMIT 1
-		)
-		ORDER BY u.username`, accountID)
+		WHERE sm.upload_id = ?
+		ORDER BY u.username`, uploadID)
 	if err != nil {
-		return nil, fmt.Errorf("list current followers: %w", err)
+		return nil, fmt.Errorf("list execution members: %w", err)
 	}
 	defer rows.Close()
 
@@ -235,4 +236,17 @@ func (s *Store) CurrentFollowers(ctx context.Context, accountID int64) ([]Follow
 		out = append(out, f)
 	}
 	return out, rows.Err()
+}
+
+// CurrentFollowers returns the membership of the account's latest completed
+// execution.
+func (s *Store) CurrentFollowers(ctx context.Context, accountID int64) ([]Follower, error) {
+	latest, err := s.BoundaryUpload(ctx, accountID, true)
+	if errors.Is(err, ErrNotFound) {
+		return []Follower{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return s.MembersForUpload(ctx, latest.ID)
 }
