@@ -78,3 +78,46 @@ jobs:
           build-args: VERSION=ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      # The multi-arch build above proves the image compiles, not that it runs.
+      # Load the native architecture into the daemon and let the container's own
+      # HEALTHCHECK pass judgement: a probe that cannot reach the service leaves
+      # the container "unhealthy" forever, which is invisible to a build-only
+      # job and is exactly how a malformed probe URL reached users.
+      - name: Load image for the runner's architecture
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          platforms: linux/amd64
+          load: true
+          tags: ift:ci
+          build-args: VERSION=ci
+          cache-from: type=gha
+
+      - name: Container reaches a healthy state
+        run: |
+          set -euo pipefail
+          docker run -d --name ift-ci -p 8080:8080 ift:ci
+
+          # start-period is 5s and interval 30s, so the first verdict lands at
+          # about 5s and a retry at about 35s. Two minutes covers a slow runner
+          # without waiting on the full three-strikes-to-unhealthy sequence.
+          for _ in $(seq 60); do
+            state=$(docker inspect --format '{{.State.Health.Status}}' ift-ci)
+            case "$state" in
+              healthy) echo "container is healthy"; exit 0 ;;
+              unhealthy) break ;;
+            esac
+            sleep 2
+          done
+
+          echo "container never became healthy (last state: ${state:-unknown})"
+          echo "--- probe log ---"
+          docker inspect --format '{{json .State.Health}}' ift-ci
+          echo "--- container log ---"
+          docker logs ift-ci
+          exit 1
+
+      - name: Stop the container
+        if: always()
+        run: docker rm -f ift-ci || true

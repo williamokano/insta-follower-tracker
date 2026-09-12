@@ -49,8 +49,13 @@ ENV IFT_DATA_DIR=/data \
 VOLUME ["/data"]
 EXPOSE 8080
 
+# The probe keeps wget's output rather than discarding it. Docker records the
+# last few probes in "docker inspect --format '{{json .State.Health}}'", and a
+# silenced probe leaves nothing there but "exit 1" — which is how this check
+# spent several releases resolving 127.0.0.18080 without anyone being able to
+# see why the container would not go healthy.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-    CMD wget -qO- "http://127.0.0.1${IFT_ADDR#*:}/healthz" >/dev/null 2>&1 || exit 1
+    CMD wget -O- "http://127.0.0.1:${IFT_ADDR#*:}/healthz" || exit 1
 
 ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["/app/ift"]
