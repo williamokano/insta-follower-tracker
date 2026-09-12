@@ -27,6 +27,51 @@
   }
 }
 
+/* Chart palette. Validated against these surfaces with the data-visualisation
+   validator: categorical slots pass the lightness, chroma, CVD-separation and
+   normal-vision gates in both modes (worst adjacent CVD dE 9.1 light / 8.4 dark).
+
+   The diverging pair is blue against red rather than the green and red used for
+   text elsewhere. Where colour is the encoding it has to survive colour
+   blindness, and green against red separates by only dE 5.0 light and 2.5 dark
+   under simulated deuteranopia: near enough to identical. Blue against red
+   scores 21.6 and 19.2. In the tables the sign and the column heading carry the
+   meaning, so the softer pair is kept there. */
+:root {
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --plot-gain: #2a78d6;
+  --plot-loss: #e34948;
+  --grid: #e8eaee;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --series-1: #3987e5;
+    --series-2: #d95926;
+    --series-3: #199e70;
+    --series-4: #c98500;
+    --series-5: #d55181;
+    --plot-gain: #3987e5;
+    --plot-loss: #e66767;
+    --grid: #2c3136;
+  }
+}
+
+:root[data-theme="dark"] {
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --plot-gain: #3987e5;
+  --plot-loss: #e66767;
+  --grid: #2c3136;
+}
+
 * { box-sizing: border-box; }
 
 body {
@@ -341,3 +386,89 @@ footer {
   .executions tr.execution td.filename { grid-column: 1 / -1; max-width: none; }
   .detail-panels { grid-template-columns: 1fr; }
 }
+
+/* Dashboard ---------------------------------------------------------------- */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+  gap: 0.75rem;
+  margin: 0.5rem 0 1.5rem;
+}
+
+.stat {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.7rem 0.85rem;
+}
+
+.stat-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.stat-value {
+  font-size: 1.6rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.stat-delta { font-size: 0.8rem; font-variant-numeric: tabular-nums; }
+.stat-delta.up { color: var(--gain); }
+.stat-delta.down { color: var(--loss); }
+.stat-delta.flat { color: var(--muted); }
+.stat-delta .muted { font-size: 0.72rem; }
+
+.chart-title { margin: 1.5rem 0 0.2rem; font-size: 1rem; }
+.chart-controls { margin: 1.25rem 0 0; }
+
+.chart { margin: 0.5rem 0 0; }
+.chart svg { width: 100%; height: auto; overflow: visible; }
+
+.grid { stroke: var(--grid); stroke-width: 1; }
+.axis-line, .zero-line { stroke: var(--border); stroke-width: 1; }
+.zero-line { stroke: var(--muted); }
+
+.axis {
+  fill: var(--muted);
+  font-size: 11px;
+  font-family: inherit;
+}
+
+.series-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+/* A surface-coloured ring keeps overlapping marks readable. */
+.series-dot { stroke: var(--panel); stroke-width: 2; }
+
+.series-line.s1 { stroke: var(--series-1); }
+.series-line.s2 { stroke: var(--series-2); }
+.series-line.s3 { stroke: var(--series-3); }
+.series-line.s4 { stroke: var(--series-4); }
+.series-line.s5 { stroke: var(--series-5); }
+
+.series-dot.s1 { fill: var(--series-1); }
+.series-dot.s2 { fill: var(--series-2); }
+.series-dot.s3 { fill: var(--series-3); }
+.series-dot.s4 { fill: var(--series-4); }
+.series-dot.s5 { fill: var(--series-5); }
+
+.series-label {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+}
+
+/* A 2px surface gap keeps neighbouring spans from reading as one block. */
+.bar-gain { fill: var(--plot-gain); stroke: var(--panel); stroke-width: 1; }
+.bar-loss { fill: var(--plot-loss); stroke: var(--panel); stroke-width: 1; }
+
+.bar-label { font-size: 10px; font-family: inherit; fill: var(--muted); font-variant-numeric: tabular-nums; }
+.legend-gain { fill: var(--plot-gain); font-weight: 600; }
+.legend-loss { fill: var(--plot-loss); font-weight: 600; }
+
+.table-view { margin-top: 1.5rem; }
+.table-view summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; }
+.table-view table { margin-top: 0.75rem; }

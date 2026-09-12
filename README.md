@@ -156,6 +156,8 @@ and so on. Uploading the ZIP handles that automatically.
   exactly who followed and unfollowed, plus the complete list as it stood at that
   point, with a filter. The first upload has no diff but still shows its list.
   The table refreshes itself while an upload is still processing.
+- **`/accounts/{handle}/trends`** — how each list has moved: headline totals, a
+  line per list placed by real export date, and gains and losses per execution.
 - **`/accounts/{handle}/diff`** — the overall comparison, defaulting to the
   first and latest executions, with the four buckets described above.
 
@@ -213,6 +215,33 @@ curl -F account=your.handle -F file=@instagram-you-2024-07-12-abc.zip \
 curl -F account=your.handle -F file=@instagram-you-2026-09-11-xyz.zip \
   http://localhost:8080/api/uploads
 ```
+
+## Reading the charts
+
+Two things about the trends page are deliberate, because the honest rendering
+differs from the obvious one.
+
+**Executions sit on a real time axis.** They are not evenly spaced, and once
+exports can be backfilled the gaps can be years. Drawing them equidistant would
+misstate how the account actually moved.
+
+**Change is drawn across the gap it covers, not on a date.** Nothing in any
+export records *when* somebody left a list. All that is ever known is that they
+were present at one execution and absent at the next, so each bar spans that
+interval. A wide bar is a long gap and therefore a loose date, which is the
+point: the uncertainty is visible rather than hidden behind a precise-looking
+column.
+
+Follows are the exception and could in principle be dated exactly, since JSON
+exports record when each person started following. That is not yet used.
+
+The chart palette is not the green and red used in the tables. Where colour
+carries the meaning it has to survive colour blindness, and green against red
+separates by only a few units under simulated deuteranopia — close to identical.
+The plots use a blue-against-red diverging pair instead, validated along with
+the categorical slots against both the light and dark chart surfaces. In the
+tables the sign and the column heading carry the meaning, so the softer pair
+stays there.
 
 ## Notes and limitations
 

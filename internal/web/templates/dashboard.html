@@ -1,0 +1,153 @@
+{{define "content"}}
+<section class="card">
+  <div class="card-head">
+    <h1>Trends for {{.Account.Handle}}</h1>
+    <a class="button-link" href="/?account={{.Account.Handle}}">← Executions</a>
+  </div>
+
+  {{if lt .ExecutionCount 2}}
+    <p class="empty">
+      Charts need at least two processed executions. Upload another export and the
+      history will appear here.
+    </p>
+  {{else}}
+
+    <div class="stats">
+      {{range .Stats}}
+        <div class="stat">
+          <div class="stat-label">{{.Label}}</div>
+          <div class="stat-value">{{.Value}}</div>
+          {{if .HasDelta}}
+            <div class="stat-delta {{if gt .Delta 0}}up{{else if lt .Delta 0}}down{{else}}flat{{end}}">
+              {{signed .Delta}} <span class="muted">{{.Note}}</span>
+            </div>
+          {{end}}
+        </div>
+      {{end}}
+    </div>
+
+    <h2 class="chart-title">Totals over time</h2>
+    <p class="hint">
+      Placed by the date each export was generated, so uneven gaps between
+      executions are drawn as they really were.
+    </p>
+    {{template "trend" .Trend}}
+
+    <form class="bounds chart-controls" method="get" action="/accounts/{{.Account.Handle}}/trends">
+      <div class="field">
+        <label for="list">Change in</label>
+        <select id="list" name="list" onchange="this.form.submit()">
+          {{range .Lists}}
+            <option value="{{.Kind}}" {{if eq (printf "%s" .Kind) $.ListKind}}selected{{end}}>{{.Label}}</option>
+          {{end}}
+        </select>
+      </div>
+      <noscript><button type="submit">Show</button></noscript>
+    </form>
+
+    <h2 class="chart-title">Change per execution · {{.ListLabel}}</h2>
+    <p class="hint callout">
+      <strong>Each bar spans the gap it covers, rather than standing on a date.</strong>
+      Nothing in an export records when somebody left a list: all that is known is
+      that they were there at one execution and gone by the next. A wide bar is a
+      long gap, and so a loose date.
+    </p>
+    {{template "delta" .Delta}}
+
+    <details class="table-view">
+      <summary>Show the numbers as a table</summary>
+      <table class="executions">
+        <thead>
+          <tr><th>#</th><th>Export date</th><th class="num">Total</th><th class="num">Joined</th><th class="num">Left</th></tr>
+        </thead>
+        <tbody>
+          {{$kind := .ListKind}}
+          {{range .History}}
+            <tr>
+              <td>{{.SequenceNo}}</td>
+              <td>{{shortDate .TakenAt}}</td>
+              <td class="num">{{index .Totals $kind}}</td>
+              <td class="num">{{signed (index .Added $kind)}}</td>
+              <td class="num">{{negated (index .Removed $kind)}}</td>
+            </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </details>
+  {{end}}
+</section>
+{{end}}
+
+{{define "trend"}}
+{{if .Empty}}
+  <p class="empty">Not enough recorded to plot yet.</p>
+{{else}}
+<figure class="chart">
+  <svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" preserveAspectRatio="xMidYMid meet"
+       aria-label="Total members of each list at every execution">
+    {{range .YTicks}}
+      <line class="grid" x1="{{$.PlotLeft}}" y1="{{.Pos}}" x2="{{$.PlotRight}}" y2="{{.Pos}}"/>
+      <text class="axis" x="{{sub $.PlotLeft 8}}" y="{{add .Pos 4}}" text-anchor="end">{{.Label}}</text>
+    {{end}}
+    {{range .XTicks}}
+      <text class="axis" x="{{.Pos}}" y="{{add $.PlotBottom 18}}" text-anchor="middle">{{.Label}}</text>
+    {{end}}
+    <line class="axis-line" x1="{{.PlotLeft}}" y1="{{.PlotBottom}}" x2="{{.PlotRight}}" y2="{{.PlotBottom}}"/>
+
+    {{range .Series}}
+      {{$class := .Class}}
+      <path class="series-line {{$class}}" d="{{.Path}}"/>
+      {{range .Dots}}
+        <circle class="series-dot {{$class}}" cx="{{.X}}" cy="{{.Y}}" r="4">
+          <title>{{.Label}}</title>
+        </circle>
+      {{end}}
+      <text class="series-label" x="{{.LabelX}}" y="{{.LabelY}}">{{.Label}} {{.Last}}</text>
+    {{end}}
+  </svg>
+</figure>
+{{end}}
+{{end}}
+
+{{define "delta"}}
+{{if .Empty}}
+  <p class="empty">No change recorded in this list yet.</p>
+{{else}}
+<figure class="chart">
+  <svg viewBox="0 0 {{.Width}} {{.Height}}" role="img" preserveAspectRatio="xMidYMid meet"
+       aria-label="Accounts joining and leaving the list between each pair of executions">
+    {{range .YTicks}}
+      <line class="grid" x1="{{$.PlotLeft}}" y1="{{.Pos}}" x2="{{$.PlotRight}}" y2="{{.Pos}}"/>
+      <text class="axis" x="{{sub $.PlotLeft 8}}" y="{{add .Pos 4}}" text-anchor="end">{{.Label}}</text>
+    {{end}}
+    {{range .XTicks}}
+      <text class="axis" x="{{.Pos}}" y="{{add $.PlotBottom 18}}" text-anchor="middle">{{.Label}}</text>
+    {{end}}
+
+    {{range .Bars}}
+      <g class="delta-bar">
+        <title>{{.Label}}</title>
+        {{if gt .GainH 0.0}}
+          <rect class="bar-gain" x="{{.X}}" y="{{.GainY}}" width="{{.Width}}" height="{{.GainH}}" rx="3"/>
+        {{end}}
+        {{if gt .LossH 0.0}}
+          <rect class="bar-loss" x="{{.X}}" y="{{.LossY}}" width="{{.Width}}" height="{{.LossH}}" rx="3"/>
+        {{end}}
+        {{if not .NarrowSpan}}
+          {{if gt .Gained 0}}
+            <text class="bar-label gain" x="{{.MidX}}" y="{{sub .GainY 5}}" text-anchor="middle">+{{.Gained}}</text>
+          {{end}}
+          {{if gt .Lost 0}}
+            <text class="bar-label loss" x="{{.MidX}}" y="{{add (add .LossY .LossH) 13}}" text-anchor="middle">−{{.Lost}}</text>
+          {{end}}
+        {{end}}
+      </g>
+    {{end}}
+
+    <line class="zero-line" x1="{{.PlotLeft}}" y1="{{.ZeroY}}" x2="{{.PlotRight}}" y2="{{.ZeroY}}"/>
+    <text class="axis legend-gain" x="{{add .PlotRight 10}}" y="{{sub .ZeroY 8}}">joined</text>
+    <text class="axis legend-loss" x="{{add .PlotRight 10}}" y="{{add .ZeroY 16}}">left</text>
+  </svg>
+</figure>
+{{end}}
+{{end}}

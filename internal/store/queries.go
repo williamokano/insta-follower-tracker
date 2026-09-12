@@ -401,3 +401,33 @@ func (s *Store) ListKindsForAccount(ctx context.Context, accountID int64) ([]str
 	}
 	return out, rows.Err()
 }
+
+// ExecutionTotals is one execution with every list's numbers attached, which is
+// the shape the dashboard plots.
+type ExecutionTotals struct {
+	Upload Upload
+	Lists  []ListTotals
+}
+
+// AccountHistory returns an account's completed executions oldest first, each
+// with the totals of every list it recorded.
+func (s *Store) AccountHistory(ctx context.Context, accountID int64) ([]ExecutionTotals, error) {
+	uploads, err := s.ListUploads(ctx, accountID)
+	if err != nil {
+		return nil, err
+	}
+
+	out := make([]ExecutionTotals, 0, len(uploads))
+	for i := len(uploads) - 1; i >= 0; i-- {
+		up := uploads[i]
+		if up.Status != StatusCompleted {
+			continue
+		}
+		totals, err := s.ListTotalsForUpload(ctx, up.ID)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, ExecutionTotals{Upload: up, Lists: totals})
+	}
+	return out, nil
+}

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/williamokano/insta-follower-tracker/internal/chart"
 	"github.com/williamokano/insta-follower-tracker/internal/instagram"
 	"github.com/williamokano/insta-follower-tracker/internal/store"
 	"github.com/williamokano/insta-follower-tracker/internal/tracker"
@@ -37,6 +38,13 @@ type pageData struct {
 	Lists     []instagram.ListInfo
 	ListKind  string
 	ListLabel string
+
+	// Dashboard.
+	Trend          chart.Trend
+	Delta          chart.Delta
+	Stats          []StatTile
+	History        []chart.Execution
+	ExecutionCount int
 }
 
 // uiRoutes registers the web interface. It is defined separately so the JSON
@@ -57,6 +65,7 @@ func (s *Server) uiRoutes() error {
 	s.mux.HandleFunc("GET /{$}", s.handleDashboard)
 	s.mux.HandleFunc("POST /upload", s.handleUploadForm)
 	s.mux.HandleFunc("GET /accounts/{handle}/diff", s.handleDiffPage)
+	s.mux.HandleFunc("GET /accounts/{handle}/trends", s.handleTrends)
 
 	return nil
 }
