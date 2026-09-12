@@ -49,10 +49,10 @@ func looksLikeHTML(body []byte) bool {
 // localised prose ("1 de janeiro de 2024"), so parsing them would be a guess at
 // the exporting account's language. They are only ever display metadata, and
 // the JSON export carries them properly.
-func parseHTMLExport(body []byte) ([]Follower, error) {
+func parseHTMLExport(body []byte) ([]Follower, bool, error) {
 	doc, err := html.Parse(bytes.NewReader(body))
 	if err != nil {
-		return nil, fmt.Errorf("parse html export: %w", err)
+		return nil, false, fmt.Errorf("parse html export: %w", err)
 	}
 
 	var out []Follower
@@ -75,10 +75,10 @@ func parseHTMLExport(body []byte) ([]Follower, error) {
 	}
 	walk(doc)
 
-	if len(out) == 0 {
-		return nil, ErrNoFollowers
-	}
-	return out, nil
+	// A list page with no profile links is an empty list, which for an
+	// auxiliary list is ordinary. Whether an empty list is acceptable is
+	// decided by the caller, which knows which list it is reading.
+	return out, true, nil
 }
 
 // usernameFromProfileURL extracts a handle from an Instagram profile link,

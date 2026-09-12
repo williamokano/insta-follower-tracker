@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"regexp"
 	"sort"
 	"strings"
 	"time"
@@ -61,16 +60,6 @@ const (
 	MaxJSONBytes = 200 << 20
 )
 
-// followersFilePattern matches the follower list inside an export, at any depth.
-// Real exports place it under followers_and_following/ as followers_1 and split
-// very large lists across followers_2, followers_3 and so on. Both the JSON and
-// the HTML download formats are accepted.
-//
-// The anchor on "followers" matters: the same directory holds following,
-// close_friends, pending_follow_requests and recently_unfollowed_profiles, none
-// of which are the follower list.
-var followersFilePattern = regexp.MustCompile(`(?i)(^|/)followers(_\d+)?\.(json|html?)$`)
-
 // Follower is one account from a follower list.
 type Follower struct {
 	Username string
@@ -89,10 +78,12 @@ type entry struct {
 	} `json:"string_list_data"`
 }
 
-// Export is one parsed follower list, together with what could be determined
-// about how much of the list it represents.
+// Export is one parsed download: every relationship list it carried, together
+// with what could be determined about how much of them it represents.
 type Export struct {
-	Followers []Follower
+	// Lists holds the members of each list the export contained. A kind that
+	// the export did not carry is absent rather than empty.
+	Lists map[ListKind][]Follower
 	// Coverage reports whether the export looks like the complete follower
 	// list or only a date-limited slice of it.
 	Coverage Coverage
@@ -104,6 +95,21 @@ type Export struct {
 	// Owner is the account the export was generated for, when it says so.
 	// Empty otherwise: the follower list itself never identifies its owner.
 	Owner string
+}
+
+// Followers is the list this service is built around, and the only one an
+// export must contain to be usable.
+func (e *Export) Followers() []Follower { return e.Lists[ListFollowers] }
+
+// Kinds returns the lists this export carried, in presentation order.
+func (e *Export) Kinds() []ListKind {
+	out := make([]ListKind, 0, len(e.Lists))
+	for _, d := range listDefinitions {
+		if _, ok := e.Lists[d.Kind]; ok {
+			out = append(out, d.Kind)
+		}
+	}
+	return out
 }
 
 // Parse reads a follower list from an uploaded file. The archive form is
@@ -122,21 +128,32 @@ func Parse(r io.ReaderAt, size int64) (*Export, error) {
 	if err != nil {
 		return nil, err
 	}
-	followers, err := parseDocument(body)
+	followers, recognised, err := parseDocument(body)
 	if err != nil {
 		return nil, err
 	}
-	followers = dedupe(followers)
-
-	// A bare file carries no start_here page, so nothing in it describes how
-	// much of the follower list it holds.
-	return &Export{Followers: followers}, nil
+	// A bare file names no list, so it is taken to be the follower list: that
+	// is what somebody lifting a single file out of an archive is almost
+	// always uploading. An empty one is treated as a mistake rather than as a
+	// genuine claim of having no followers, since there is nothing else in the
+	// upload to corroborate it.
+	if !recognised || len(followers) == 0 {
+		return nil, ErrNoFollowers
+	}
+	// It also carries no start_here page, so nothing in it describes how much
+	// of the list it holds.
+	return &Export{Lists: map[ListKind][]Follower{ListFollowers: dedupe(followers)}}, nil
 }
 
-// parseDocument reads one follower list, in whichever of the two download
+// parseDocument reads one relationship list, in whichever of the two download
 // formats it happens to be. The format is detected from the content, so a file
 // renamed on the way out of the archive still parses.
-func parseDocument(body []byte) ([]Follower, error) {
+//
+// It reports whether the document was recognised as a list at all, separately
+// from how many entries that list held. The distinction matters: an empty
+// pending-requests file means you have no pending requests, which is a fact
+// worth recording, while an unrecognised file means something else entirely.
+func parseDocument(body []byte) (followers []Follower, recognised bool, err error) {
 	if looksLikeHTML(body) {
 		return parseHTMLExport(body)
 	}
@@ -155,28 +172,24 @@ func isZip(r io.ReaderAt) bool {
 // parseJSON handles the two document shapes Instagram emits for relationship
 // lists: a bare array, and an object wrapping that array under a
 // relationships_* key.
-func parseJSON(body []byte) ([]Follower, error) {
+func parseJSON(body []byte) ([]Follower, bool, error) {
 	trimmed := bytes.TrimLeft(body, " \t\r\n")
 	if len(trimmed) == 0 {
-		return nil, ErrNoFollowers
+		return nil, false, nil
 	}
 
 	switch trimmed[0] {
 	case '[':
 		var entries []entry
 		if err := json.Unmarshal(trimmed, &entries); err != nil {
-			return nil, fmt.Errorf("parse follower array: %w", err)
+			return nil, false, fmt.Errorf("parse follower array: %w", err)
 		}
-		followers := flatten(entries)
-		if len(followers) == 0 {
-			return nil, ErrNoFollowers
-		}
-		return followers, nil
+		return flatten(entries), true, nil
 
 	case '{':
 		var wrapper map[string]json.RawMessage
 		if err := json.Unmarshal(trimmed, &wrapper); err != nil {
-			return nil, fmt.Errorf("parse follower object: %w", err)
+			return nil, false, fmt.Errorf("parse follower object: %w", err)
 		}
 
 		// Prefer an explicit relationships_* key, then fall back to any key
@@ -194,19 +207,22 @@ func parseJSON(body []byte) ([]Follower, error) {
 			return keys[i] < keys[j]
 		})
 
+		// A relationships_* key is the list even when it is empty; any other
+		// key only counts if it actually holds entries.
 		for _, k := range keys {
 			var entries []entry
 			if err := json.Unmarshal(wrapper[k], &entries); err != nil {
 				continue
 			}
-			if followers := flatten(entries); len(followers) > 0 {
-				return followers, nil
+			followers := flatten(entries)
+			if len(followers) > 0 || strings.HasPrefix(k, "relationships_") {
+				return followers, true, nil
 			}
 		}
-		return nil, ErrNoFollowers
+		return nil, false, nil
 
 	default:
-		return nil, ErrNoFollowers
+		return nil, false, nil
 	}
 }
 

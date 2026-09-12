@@ -26,6 +26,11 @@ func snapshotTime(seed int64) time.Time {
 	return time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC).Add(time.Duration(seed) * time.Hour)
 }
 
+// followerList wraps names as the single follower list of a snapshot.
+func followerList(names ...string) []store.ListSnapshot {
+	return []store.ListSnapshot{{Kind: store.DefaultListKind, Members: members(names...)}}
+}
+
 func members(names ...string) []store.Member {
 	out := make([]store.Member, 0, len(names))
 	for _, n := range names {
@@ -46,7 +51,7 @@ func snapshot(t *testing.T, s *store.Store, accountID int64, name string, names 
 	if err != nil {
 		t.Fatalf("create upload %s: %v", name, err)
 	}
-	if _, err := s.ApplySnapshot(ctx, id, members(names...), snapshotTime(id), "test"); err != nil {
+	if _, err := s.ApplySnapshot(ctx, id, followerList(names...), snapshotTime(id), "test"); err != nil {
 		t.Fatalf("apply snapshot %s: %v", name, err)
 	}
 	up, err := s.Upload(ctx, id)
@@ -148,7 +153,7 @@ func TestFirstSnapshotIsBaselineWithNoChanges(t *testing.T) {
 		t.Fatalf("counts = %d/%d/%d, want 2/0/0", up.FollowerCount, up.AddedCount, up.RemovedCount)
 	}
 
-	changes, err := s.ChangesForUpload(ctx, up.ID, "")
+	changes, err := s.ChangesForUpload(ctx, up.ID, "", "")
 	if err != nil {
 		t.Fatalf("changes: %v", err)
 	}
@@ -169,7 +174,7 @@ func TestConsecutiveExecutionsRecordDeltas(t *testing.T) {
 		t.Fatalf("counts = +%d/-%d, want +1/-1", second.AddedCount, second.RemovedCount)
 	}
 
-	followed, err := s.ChangesForUpload(ctx, second.ID, store.ChangeFollowed)
+	followed, err := s.ChangesForUpload(ctx, second.ID, "", store.ChangeFollowed)
 	if err != nil {
 		t.Fatalf("followed: %v", err)
 	}
@@ -177,7 +182,7 @@ func TestConsecutiveExecutionsRecordDeltas(t *testing.T) {
 		t.Fatalf("followed = %+v, want [carol]", followed)
 	}
 
-	unfollowed, err := s.ChangesForUpload(ctx, second.ID, store.ChangeUnfollowed)
+	unfollowed, err := s.ChangesForUpload(ctx, second.ID, "", store.ChangeUnfollowed)
 	if err != nil {
 		t.Fatalf("unfollowed: %v", err)
 	}
@@ -203,7 +208,7 @@ func TestDiffSeparatesReturningFollowersFromLostOnes(t *testing.T) {
 	snapshot(t, s, acc.ID, "e3", "alice")
 	last := snapshot(t, s, acc.ID, "e4", "alice", "bob", "erin")
 
-	diff, err := s.Diff(ctx, acc.ID, first, last)
+	diff, err := s.Diff(ctx, acc.ID, first, last, "")
 	if err != nil {
 		t.Fatalf("diff: %v", err)
 	}
@@ -215,7 +220,7 @@ func TestDiffSeparatesReturningFollowersFromLostOnes(t *testing.T) {
 
 	// The raw event log does contain bob, which is exactly why it must not be
 	// used on its own to answer "who is not following anymore".
-	raw, err := s.AllUnfollowers(ctx, acc.ID)
+	raw, err := s.AllUnfollowers(ctx, acc.ID, "")
 	if err != nil {
 		t.Fatalf("all unfollowers: %v", err)
 	}
@@ -242,7 +247,7 @@ func TestDiffOfAdjacentExecutionsHasNoMiddle(t *testing.T) {
 	first := snapshot(t, s, acc.ID, "e1", "alice", "bob")
 	second := snapshot(t, s, acc.ID, "e2", "alice", "carol")
 
-	diff, err := s.Diff(ctx, acc.ID, first, second)
+	diff, err := s.Diff(ctx, acc.ID, first, second, "")
 	if err != nil {
 		t.Fatalf("diff: %v", err)
 	}
@@ -373,10 +378,10 @@ func TestReprocessingClearsPreviousState(t *testing.T) {
 	id, _ := s.CreateUpload(ctx, store.NewUpload{
 		AccountID: acc.ID, Filename: "e2", StoredPath: "/tmp/e2", SHA256: "sha", SizeBytes: 1,
 	})
-	if _, err := s.ApplySnapshot(ctx, id, members("alice", "bob"), snapshotTime(id), "test"); err != nil {
+	if _, err := s.ApplySnapshot(ctx, id, followerList("alice", "bob"), snapshotTime(id), "test"); err != nil {
 		t.Fatalf("first apply: %v", err)
 	}
-	res, err := s.ApplySnapshot(ctx, id, members("alice", "bob"), snapshotTime(id), "test")
+	res, err := s.ApplySnapshot(ctx, id, followerList("alice", "bob"), snapshotTime(id), "test")
 	if err != nil {
 		t.Fatalf("second apply: %v", err)
 	}
@@ -384,7 +389,7 @@ func TestReprocessingClearsPreviousState(t *testing.T) {
 		t.Fatalf("reapply produced +%d/%d followers, want +1/2", res.AddedCount, res.FollowerCount)
 	}
 
-	changes, err := s.ChangesForUpload(ctx, id, "")
+	changes, err := s.ChangesForUpload(ctx, id, "", "")
 	if err != nil {
 		t.Fatalf("changes: %v", err)
 	}

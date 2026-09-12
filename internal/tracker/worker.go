@@ -126,16 +126,22 @@ func (s *Service) process(ctx context.Context, up store.Upload) error {
 		return err
 	}
 
-	members := make([]store.Member, 0, len(export.Followers))
-	for _, fl := range export.Followers {
-		members = append(members, store.Member{
-			Username:   fl.Username,
-			Href:       fl.Href,
-			FollowedAt: fl.FollowedAt,
-		})
+	// Every list the export carried is recorded, each diffed independently.
+	lists := make([]store.ListSnapshot, 0, len(export.Lists))
+	for _, kind := range export.Kinds() {
+		entries := export.Lists[kind]
+		members := make([]store.Member, 0, len(entries))
+		for _, fl := range entries {
+			members = append(members, store.Member{
+				Username:   fl.Username,
+				Href:       fl.Href,
+				FollowedAt: fl.FollowedAt,
+			})
+		}
+		lists = append(lists, store.ListSnapshot{Kind: string(kind), Members: members})
 	}
 
-	result, err := s.store.ApplySnapshot(ctx, up.ID, members, takenAt, source)
+	result, err := s.store.ApplySnapshot(ctx, up.ID, lists, takenAt, source)
 	if err != nil {
 		return err
 	}
@@ -146,7 +152,7 @@ func (s *Service) process(ctx context.Context, up store.Upload) error {
 	} else {
 		s.log.Info("execution processed",
 			"upload_id", up.ID, "account", up.AccountHandle, "sequence", result.SequenceNo,
-			"snapshot_taken_at", takenAt, "date_source", source,
+			"snapshot_taken_at", takenAt, "date_source", source, "lists", len(lists),
 			"followers", result.FollowerCount, "followed", result.AddedCount, "unfollowed", result.RemovedCount)
 	}
 

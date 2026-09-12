@@ -356,3 +356,48 @@ func (s *Store) SetSnapshotDate(ctx context.Context, uploadID int64, takenAt tim
 	}
 	return nil
 }
+
+// ListTotalsForUpload returns the per-list numbers an execution recorded.
+func (s *Store) ListTotalsForUpload(ctx context.Context, uploadID int64) ([]ListTotals, error) {
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT list_kind, member_count, added_count, removed_count
+		 FROM upload_lists WHERE upload_id = ? ORDER BY list_kind`, uploadID)
+	if err != nil {
+		return nil, fmt.Errorf("list totals: %w", err)
+	}
+	defer rows.Close()
+
+	out := []ListTotals{}
+	for rows.Next() {
+		var t ListTotals
+		if err := rows.Scan(&t.Kind, &t.MemberCount, &t.AddedCount, &t.RemovedCount); err != nil {
+			return nil, fmt.Errorf("scan list totals: %w", err)
+		}
+		out = append(out, t)
+	}
+	return out, rows.Err()
+}
+
+// ListKindsForAccount returns every list an account has ever recorded.
+func (s *Store) ListKindsForAccount(ctx context.Context, accountID int64) ([]string, error) {
+	rows, err := s.db.QueryContext(ctx, `
+		SELECT DISTINCT ul.list_kind
+		FROM upload_lists ul
+		JOIN uploads u ON u.id = ul.upload_id
+		WHERE u.account_id = ? AND u.status = 'completed'
+		ORDER BY ul.list_kind`, accountID)
+	if err != nil {
+		return nil, fmt.Errorf("list kinds: %w", err)
+	}
+	defer rows.Close()
+
+	out := []string{}
+	for rows.Next() {
+		var kind string
+		if err := rows.Scan(&kind); err != nil {
+			return nil, fmt.Errorf("scan kind: %w", err)
+		}
+		out = append(out, kind)
+	}
+	return out, rows.Err()
+}

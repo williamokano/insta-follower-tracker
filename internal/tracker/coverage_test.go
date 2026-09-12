@@ -65,7 +65,7 @@ func TestRefusedExportRecordsNoChanges(t *testing.T) {
 	upload(t, svc, "acme", "full.zip", exportZip(t, manyFollowers(400)...))
 	windowed := upload(t, svc, "acme", "windowed.zip", exportZip(t, manyFollowers(25)...))
 
-	changes, err := st.ChangesForUpload(ctx, windowed.ID, "")
+	changes, err := st.ChangesForUpload(ctx, windowed.ID, "", "")
 	if err != nil {
 		t.Fatalf("changes: %v", err)
 	}
@@ -74,7 +74,7 @@ func TestRefusedExportRecordsNoChanges(t *testing.T) {
 	}
 
 	acc, _ := st.AccountByHandle(ctx, "acme")
-	unfollowers, err := st.AllUnfollowers(ctx, acc.ID)
+	unfollowers, err := st.AllUnfollowers(ctx, acc.ID, "")
 	if err != nil {
 		t.Fatalf("unfollowers: %v", err)
 	}

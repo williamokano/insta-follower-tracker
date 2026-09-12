@@ -142,7 +142,7 @@ func TestBackfillRewritesTheDiffsAroundIt(t *testing.T) {
 			got[2].AddedCount, got[2].RemovedCount)
 	}
 
-	changes, err := st.ChangesForUpload(ctx, got[2].ID, store.ChangeFollowed)
+	changes, err := st.ChangesForUpload(ctx, got[2].ID, "", store.ChangeFollowed)
 	if err != nil {
 		t.Fatalf("changes: %v", err)
 	}
@@ -175,7 +175,7 @@ func TestBackfillCorrectsTheOverallDiff(t *testing.T) {
 			first.OriginalFilename, last.OriginalFilename)
 	}
 
-	diff, err := st.Diff(ctx, acc.ID, first, last)
+	diff, err := st.Diff(ctx, acc.ID, first, last, "")
 	if err != nil {
 		t.Fatalf("diff: %v", err)
 	}

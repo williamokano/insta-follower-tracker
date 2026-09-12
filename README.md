@@ -8,6 +8,27 @@ history.
 <!-- markdownlint-disable-next-line MD033 -->
 Self-hosted, single binary, SQLite, no authentication.
 
+## What it tracks
+
+An export carries several relationship lists, and all of them are recorded and
+compared over time in the same way:
+
+| List | |
+| --- | --- |
+| **Followers** | accounts that follow you — required; an export without it is rejected |
+| **Following** | accounts you follow |
+| **Close friends** | your close friends list |
+| **Pending requests** | follow requests you sent that are still unanswered |
+| **Blocked**, **Restricted**, **Favourited** | as named |
+
+Having both followers and following in the same export also answers two
+questions that need no history at all, because they compare two lists at the
+same moment: who you follow that **does not follow you back**, and who follows
+you that you do not follow back.
+
+`following_hashtags` is deliberately ignored: its entries are topics rather than
+accounts.
+
 ## How it works
 
 1. Upload an export. The file is stored and queued; the response comes back
@@ -146,11 +167,16 @@ and so on. Uploading the ZIP handles that automatically.
 | `GET` | `/api/uploads/{id}` | One execution, including its processing status. |
 | `GET` | `/api/uploads/{id}/changes` | That execution's diff. Filter with `?type=followed` or `?type=unfollowed`. |
 | `GET` | `/api/uploads/{id}/followers` | The complete list that execution recorded, available even for the first one. |
+| `GET` | `/api/uploads/{id}/relationships` | Who is not following back, and who you do not follow back, within one execution. |
+| `GET` | `/api/lists` | The relationship lists this service understands. |
 | `GET` | `/api/accounts` | Every tracked account with headline counts. |
 | `GET` | `/api/accounts/{handle}/uploads` | The account's executions. |
 | `GET` | `/api/accounts/{handle}/followers` | The current follower list. |
 | `GET` | `/api/accounts/{handle}/diff` | Overall diff. `?from=` and `?to=` accept `first`, `last` or an execution id; defaults to `first` and `last`. |
-| `GET` | `/api/accounts/{handle}/unfollowers` | Raw unfollow event log across all executions. Over-reports by design. |
+| `GET` | `/api/accounts/{handle}/unfollowers` | Raw departure log across all executions. Over-reports by design. |
+
+Every endpoint that reads a list takes `?list=` to choose which one, defaulting
+to `followers`.
 | `GET` | `/healthz` | Health, version, and the number of uploads still queued. |
 
 ```sh
@@ -212,6 +238,10 @@ curl -F account=your.handle -F file=@instagram-you-2026-09-11-xyz.zip \
   the file alone — there is no baseline to compare it against and nothing in it
   says what it covers. Follow dates look like they would help and do not: a young
   or fast-growing account has the same shape as a filtered export of an old one.
+- **A list that is absent is not a list that is empty.** An export that did not
+  carry, say, the following list says nothing about it, and is skipped rather
+  than recorded as everybody having left. An export that carries it *empty* does
+  mean there is nobody in it, and is recorded as such.
 - **Follow dates are only read from JSON exports.** The HTML format writes them
   in the account's own language, so they are left empty rather than guessed at.
   They are display metadata and never affect a diff.

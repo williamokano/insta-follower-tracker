@@ -26,7 +26,7 @@ func parse(t *testing.T, body []byte) ([]instagram.Follower, error) {
 	if err != nil {
 		return nil, err
 	}
-	return export.Followers, nil
+	return export.Followers(), nil
 }
 
 // parseExport keeps the full result for tests that care about coverage.
