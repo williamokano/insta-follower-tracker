@@ -5,11 +5,15 @@
 package web
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
+	"io"
 	"io/fs"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -35,13 +39,82 @@ func Templates() (map[string]*template.Template, error) {
 	return out, nil
 }
 
+// AssetVersion is a short hash of every embedded static file, computed once at
+// startup. Templates append it to asset URLs so that a new build is a new URL.
+//
+// Without it a released fix to the stylesheet or the script simply does not
+// arrive: the assets are embedded, so their modification time is the zero time,
+// http.ServeContent then omits Last-Modified, and with no validator of any kind
+// a browser keeps serving whatever it cached the first time. That shipped once,
+// and the symptom was a user running new HTML against an old stylesheet with no
+// reason to suspect their browser rather than the release.
+var AssetVersion = assetVersion()
+
+// assetVersion hashes the static files, names and contents, in the order the
+// embedded filesystem walks them, which is deterministic.
+func assetVersion() string {
+	sum := sha256.New()
+
+	err := fs.WalkDir(assets, "static", func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		f, err := assets.Open(path)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		// A hash.Hash never reports a write error, by its own contract.
+		_, _ = fmt.Fprintf(sum, "%s\x00", path)
+
+		_, err = io.Copy(sum, f)
+		return err
+	})
+	if err != nil {
+		// The assets are compiled in, so this cannot fail for any reason a
+		// caller could act on. Fall back to a constant: asset URLs stop being
+		// versioned, which is the behaviour before this existed.
+		return "dev"
+	}
+
+	return hex.EncodeToString(sum.Sum(nil))[:12]
+}
+
 // StaticHandler serves the embedded stylesheet and script.
+//
+// A request carrying the current version may be cached forever, because a
+// changed file arrives under a different URL. Anything else must be revalidated,
+// so a stale bookmark or a hand-typed path cannot pin an old asset.
 func StaticHandler() (http.Handler, error) {
 	sub, err := fs.Sub(assets, "static")
 	if err != nil {
 		return nil, fmt.Errorf("open static assets: %w", err)
 	}
-	return http.FileServer(http.FS(sub)), nil
+
+	files := http.FileServer(http.FS(sub))
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Query().Get("v") == AssetVersion {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "no-cache")
+		}
+		// An entity tag gives the browser something to revalidate against,
+		// which the embedded filesystem's zero modification time does not.
+		w.Header().Set("ETag", `"`+AssetVersion+`"`)
+
+		if match := r.Header.Get("If-None-Match"); match != "" {
+			for _, tag := range strings.Split(match, ",") {
+				if strings.Trim(strings.TrimSpace(tag), `"`) == AssetVersion {
+					w.WriteHeader(http.StatusNotModified)
+					return
+				}
+			}
+		}
+
+		files.ServeHTTP(w, r)
+	}), nil
 }
 
 func funcs() template.FuncMap {

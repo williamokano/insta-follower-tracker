@@ -24,6 +24,8 @@ linters:
         - (io.ReadCloser).Close
         - (*os.File).Close
         - (io.Closer).Close
+        # A file from an embedded filesystem, opened to be hashed.
+        - (io/fs.File).Close
     revive:
       rules:
         - name: exported
