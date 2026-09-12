@@ -47,6 +47,69 @@
     return div;
   }
 
+  /**
+   * The full list an execution recorded, with a filter. This is the whole
+   * panel for a first upload, which has nothing to compare against, and sits
+   * beside the deltas for every execution after it.
+   */
+  function membershipPanel(uploadID, total, wide) {
+    const div = document.createElement("div");
+    div.className = "bucket members" + (wide ? " wide" : "");
+
+    const h3 = document.createElement("h3");
+    h3.textContent = "Followers at this point";
+    const count = document.createElement("span");
+    count.className = "count";
+    count.textContent = total;
+    h3.appendChild(count);
+    div.appendChild(h3);
+
+    const search = document.createElement("input");
+    search.type = "search";
+    search.className = "member-filter";
+    search.placeholder = "Filter " + total + " " + (total === 1 ? "name" : "names");
+    search.setAttribute("aria-label", "Filter followers");
+    div.appendChild(search);
+
+    const listHolder = document.createElement("div");
+    listHolder.textContent = "Loading…";
+    div.appendChild(listHolder);
+
+    let loaded = [];
+    const render = function () {
+      const needle = search.value.trim().toLowerCase();
+      const shown = needle === ""
+        ? loaded
+        : loaded.filter(function (f) { return f.username.indexOf(needle) !== -1; });
+
+      listHolder.textContent = "";
+      if (needle !== "") {
+        const note = document.createElement("p");
+        note.className = "blurb";
+        note.textContent = shown.length + " of " + loaded.length + " match";
+        listHolder.appendChild(note);
+      }
+      listHolder.appendChild(peopleList(shown, needle === "" ? "Nobody." : "No match."));
+    };
+
+    search.addEventListener("input", render);
+
+    fetch("/api/uploads/" + uploadID + "/followers", { headers: { Accept: "application/json" } })
+      .then(function (response) {
+        if (!response.ok) throw new Error("status " + response.status);
+        return response.json();
+      })
+      .then(function (data) {
+        loaded = data.followers || [];
+        render();
+      })
+      .catch(function (err) {
+        listHolder.textContent = "Could not load the list: " + err.message;
+      });
+
+    return div;
+  }
+
   async function loadDetail(uploadID, container) {
     try {
       const response = await fetch("/api/uploads/" + uploadID + "/changes", {
@@ -59,15 +122,21 @@
 
       container.textContent = "";
       if (data.is_baseline) {
-        const p = document.createElement("p");
-        p.className = "empty";
-        p.textContent =
-          "This is the first execution for the account, so there is nothing before it to compare against.";
-        container.appendChild(p);
+        const note = document.createElement("p");
+        note.className = "blurb baseline-note";
+        note.textContent =
+          "This is the earliest execution for the account, so there is nothing before it to " +
+          "compare against. Here is the list it recorded.";
+        container.appendChild(note);
       } else {
         container.appendChild(bucket("Followed", "gain", data.followed, "Nobody new."));
         container.appendChild(bucket("Unfollowed", "loss", data.unfollowed, "Nobody left."));
       }
+      // On a baseline the list is the whole panel, so let it use the full width
+      // rather than sit in one column of a grid sized for the delta buckets.
+      container.appendChild(
+        membershipPanel(uploadID, data.upload.follower_count, data.is_baseline === true)
+      );
       container.dataset.loaded = "true";
     } catch (err) {
       container.textContent = "Could not load the details: " + err.message;
