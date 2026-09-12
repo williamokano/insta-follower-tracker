@@ -255,7 +255,30 @@ button.toggle[aria-expanded="true"] { color: var(--text); border-color: var(--ac
 .executions small.error { display: block; color: var(--loss); font-size: 0.75rem; margin-top: 0.2rem; }
 
 .detail-row td { background: color-mix(in srgb, var(--accent) 4%, transparent); }
-.detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+.detail-panels { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 1rem; }
+
+.list-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.85rem;
+}
+
+.list-tabs button {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  padding: 0.25rem 0.6rem;
+  border-radius: 999px;
+}
+
+.list-tabs button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
 
 /* Buckets ----------------------------------------------------------------- */
 
@@ -316,5 +339,5 @@ footer {
   .executions tr.execution { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.2rem; padding: 0.5rem 0; }
   .executions tr.execution td { border: 0; padding: 0.15rem 0.25rem; }
   .executions tr.execution td.filename { grid-column: 1 / -1; max-width: none; }
-  .detail { grid-template-columns: 1fr; }
+  .detail-panels { grid-template-columns: 1fr; }
 }

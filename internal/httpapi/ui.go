@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/williamokano/insta-follower-tracker/internal/instagram"
 	"github.com/williamokano/insta-follower-tracker/internal/store"
 	"github.com/williamokano/insta-follower-tracker/internal/tracker"
 	"github.com/williamokano/insta-follower-tracker/internal/web"
@@ -31,6 +32,11 @@ type pageData struct {
 	// Diff page.
 	Executions []store.Upload
 	Diff       *store.NetDiff
+	// Lists are the relationship lists this account has recorded and that are
+	// worth following over time.
+	Lists     []instagram.ListInfo
+	ListKind  string
+	ListLabel string
 }
 
 // uiRoutes registers the web interface. It is defined separately so the JSON
@@ -237,6 +243,17 @@ func (s *Server) handleDiffPage(w http.ResponseWriter, r *http.Request) {
 		Account: &account,
 	}
 
+	kinds, err := s.svc.Store().ListKindsForAccount(ctx, account.ID)
+	if err != nil {
+		s.writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	for _, kind := range kinds {
+		if info, ok := instagram.LookupList(kind); ok && info.Tracked {
+			data.Lists = append(data.Lists, info)
+		}
+	}
+
 	accounts, err := s.svc.Store().ListAccounts(ctx)
 	if err != nil {
 		s.writeError(w, r, http.StatusInternalServerError, err)
@@ -288,12 +305,21 @@ func (s *Server) handleDiffPage(w http.ResponseWriter, r *http.Request) {
 		from, to = to, from
 	}
 
-	diff, err := s.svc.Store().Diff(ctx, account.ID, from, to)
+	listKind, err := listKindParam(r)
+	if err != nil {
+		listKind = store.DefaultListKind
+	}
+
+	diff, err := s.svc.Store().Diff(ctx, account.ID, from, to, listKind)
 	if err != nil {
 		s.writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	data.Diff = &diff
+	data.ListKind = listKind
+	if info, ok := instagram.LookupList(listKind); ok {
+		data.ListLabel = info.Label
+	}
 
 	s.render(w, r, "diff.html", data)
 }

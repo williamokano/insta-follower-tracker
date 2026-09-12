@@ -22,6 +22,18 @@ const (
 	ChangeUnfollowed ChangeType = "unfollowed"
 )
 
+// DefaultListKind is the list every query falls back to, and the only one the
+// service tracked before other lists were read.
+const DefaultListKind = "followers"
+
+// ListTotals are one relationship list's numbers for one execution.
+type ListTotals struct {
+	Kind         string `json:"kind"`
+	MemberCount  int    `json:"member_count"`
+	AddedCount   int    `json:"added_count"`
+	RemovedCount int    `json:"removed_count"`
+}
+
 // SourceProcessingOrder marks an execution whose date is not known from the
 // export, only from the order it happened to be processed in. Executions
 // recorded before export dates existed carry this.

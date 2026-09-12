@@ -67,7 +67,7 @@ func TestDeclaredDateRangeMarksExportPartial(t *testing.T) {
 		t.Fatalf("the reason should name the window, got: %s", export.Coverage.Reason)
 	}
 	// The followers themselves still parse; it is the coverage that is in doubt.
-	assertNames(t, export.Followers, "alice", "bob", "carol_x.99")
+	assertNames(t, export.Followers(), "alice", "bob", "carol_x.99")
 }
 
 func TestWideDateRangeIsNotPartial(t *testing.T) {

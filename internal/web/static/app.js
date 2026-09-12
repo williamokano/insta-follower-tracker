@@ -52,12 +52,12 @@
    * panel for a first upload, which has nothing to compare against, and sits
    * beside the deltas for every execution after it.
    */
-  function membershipPanel(uploadID, total, wide) {
+  function membershipPanel(uploadID, kind, total, heading, wide) {
     const div = document.createElement("div");
     div.className = "bucket members" + (wide ? " wide" : "");
 
     const h3 = document.createElement("h3");
-    h3.textContent = "Followers at this point";
+    h3.textContent = heading;
     const count = document.createElement("span");
     count.className = "count";
     count.textContent = total;
@@ -94,7 +94,8 @@
 
     search.addEventListener("input", render);
 
-    fetch("/api/uploads/" + uploadID + "/followers", { headers: { Accept: "application/json" } })
+    fetch("/api/uploads/" + uploadID + "/followers?list=" + encodeURIComponent(kind),
+      { headers: { Accept: "application/json" } })
       .then(function (response) {
         if (!response.ok) throw new Error("status " + response.status);
         return response.json();
@@ -110,39 +111,156 @@
     return div;
   }
 
+  /** Human wording for a list, used in the panels within it. */
+  const LIST_WORDING = {
+    followers: { joined: "Followed", left: "Unfollowed", here: "Followers at this point" },
+    following: { joined: "Started following", left: "Stopped following", here: "Following at this point" },
+  };
+
+  function wordingFor(kind) {
+    return LIST_WORDING[kind] || { joined: "Added", left: "Removed", here: "Members at this point" };
+  }
+
+  /** Load and render one list's panels into the container. */
+  async function loadList(uploadID, kind, totals, container) {
+    const words = wordingFor(kind);
+    const query = "?list=" + encodeURIComponent(kind);
+
+    const response = await fetch("/api/uploads/" + uploadID + "/changes" + query, {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error("request failed with status " + response.status);
+    const data = await response.json();
+
+    const panels = document.createElement("div");
+    panels.className = "detail-panels";
+
+    if (data.is_baseline) {
+      const note = document.createElement("p");
+      note.className = "blurb baseline-note";
+      note.textContent =
+        "This is the earliest execution for the account, so there is nothing before it to " +
+        "compare against. Here is the list it recorded.";
+      panels.appendChild(note);
+    } else {
+      panels.appendChild(bucket(words.joined, "gain", data.followed, "Nobody new."));
+      panels.appendChild(bucket(words.left, "loss", data.unfollowed, "Nobody left."));
+    }
+
+    const total = totals[kind] === undefined ? 0 : totals[kind];
+    panels.appendChild(membershipPanel(uploadID, kind, total, words.here, data.is_baseline === true));
+
+    container.textContent = "";
+    container.appendChild(panels);
+  }
+
+  /** Accounts you follow who do not follow you back, and the reverse. */
+  async function loadRelationships(uploadID, container) {
+    const response = await fetch("/api/uploads/" + uploadID + "/relationships", {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) throw new Error("request failed with status " + response.status);
+    const data = await response.json();
+
+    const panels = document.createElement("div");
+    panels.className = "detail-panels";
+
+    if (data.message) {
+      const note = document.createElement("p");
+      note.className = "blurb baseline-note";
+      note.textContent = data.message;
+      panels.appendChild(note);
+    } else {
+      panels.appendChild(bucket("Not following you back", "loss", data.not_following_back,
+        "Everybody you follow follows you back."));
+      panels.appendChild(bucket("Fans", "gain", data.fans,
+        "You follow back everybody who follows you."));
+    }
+
+    container.textContent = "";
+    container.appendChild(panels);
+  }
+
   async function loadDetail(uploadID, container) {
     try {
-      const response = await fetch("/api/uploads/" + uploadID + "/changes", {
+      const response = await fetch("/api/uploads/" + uploadID + "/followers", {
         headers: { Accept: "application/json" },
       });
       if (!response.ok) {
         throw new Error("request failed with status " + response.status);
       }
-      const data = await response.json();
+      const summary = await response.json();
+
+      const totals = {};
+      const kinds = [];
+      for (const entry of summary.lists || []) {
+        totals[entry.kind] = entry.member_count;
+        kinds.push(entry.kind);
+      }
+      if (kinds.length === 0) kinds.push("followers");
 
       container.textContent = "";
-      if (data.is_baseline) {
-        const note = document.createElement("p");
-        note.className = "blurb baseline-note";
-        note.textContent =
-          "This is the earliest execution for the account, so there is nothing before it to " +
-          "compare against. Here is the list it recorded.";
-        container.appendChild(note);
-      } else {
-        container.appendChild(bucket("Followed", "gain", data.followed, "Nobody new."));
-        container.appendChild(bucket("Unfollowed", "loss", data.unfollowed, "Nobody left."));
+
+      const body = document.createElement("div");
+      const tabs = document.createElement("div");
+      tabs.className = "list-tabs";
+
+      const show = function (loader, button) {
+        for (const other of tabs.querySelectorAll("button")) {
+          other.setAttribute("aria-pressed", other === button ? "true" : "false");
+        }
+        body.textContent = "Loading…";
+        loader(body).catch(function (err) {
+          body.textContent = "Could not load: " + err.message;
+        });
+      };
+
+      const addTab = function (label, loader) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = label;
+        button.setAttribute("aria-pressed", "false");
+        button.addEventListener("click", function () { show(loader, button); });
+        tabs.appendChild(button);
+        return button;
+      };
+
+      let firstTab = null;
+      for (const kind of kinds) {
+        const label = LIST_LABELS[kind] || kind;
+        const button = addTab(label, function (target) {
+          return loadList(uploadID, kind, totals, target);
+        });
+        if (firstTab === null) firstTab = button;
       }
-      // On a baseline the list is the whole panel, so let it use the full width
-      // rather than sit in one column of a grid sized for the delta buckets.
-      container.appendChild(
-        membershipPanel(uploadID, data.upload.follower_count, data.is_baseline === true)
-      );
+
+      if (totals.following !== undefined && totals.followers !== undefined) {
+        addTab("Not following back", function (target) {
+          return loadRelationships(uploadID, target);
+        });
+      }
+
+      // Only worth showing tabs when there is more than one thing to choose.
+      if (tabs.children.length > 1) container.appendChild(tabs);
+      container.appendChild(body);
+
+      firstTab.click();
       container.dataset.loaded = "true";
     } catch (err) {
       container.textContent = "Could not load the details: " + err.message;
       container.dataset.loaded = "false";
     }
   }
+
+  /** Labels for the list tabs, filled in from the server on first load. */
+  const LIST_LABELS = {};
+
+  fetch("/api/lists", { headers: { Accept: "application/json" } })
+    .then(function (r) { return r.ok ? r.json() : { lists: [] }; })
+    .then(function (data) {
+      for (const info of data.lists || []) LIST_LABELS[info.kind] = info.label;
+    })
+    .catch(function () { /* labels fall back to the raw kind */ });
 
   function wireToggles(root) {
     for (const button of root.querySelectorAll("button.toggle")) {

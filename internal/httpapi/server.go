@@ -61,6 +61,8 @@ func (s *Server) routes() error {
 	s.mux.HandleFunc("GET /api/uploads/{id}", s.handleGetUpload)
 	s.mux.HandleFunc("GET /api/uploads/{id}/changes", s.handleUploadChanges)
 	s.mux.HandleFunc("GET /api/uploads/{id}/followers", s.handleUploadFollowers)
+	s.mux.HandleFunc("GET /api/uploads/{id}/relationships", s.handleUploadRelationships)
+	s.mux.HandleFunc("GET /api/lists", s.handleLists)
 
 	s.mux.HandleFunc("GET /api/accounts", s.handleListAccounts)
 	s.mux.HandleFunc("GET /api/accounts/{handle}/uploads", s.handleAccountUploads)

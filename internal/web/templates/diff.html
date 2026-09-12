@@ -1,7 +1,7 @@
 {{define "content"}}
 <section class="card">
   <div class="card-head">
-    <h1>Overall diff for {{.Account.Handle}}</h1>
+    <h1>Overall diff for {{.Account.Handle}}{{if .ListLabel}} · {{.ListLabel}}{{end}}</h1>
     <a class="button-link" href="/?account={{.Account.Handle}}">← Executions</a>
   </div>
 
@@ -27,20 +27,30 @@
           {{end}}
         </select>
       </div>
+      {{if gt (len .Lists) 1}}
+        <div class="field">
+          <label for="list">List</label>
+          <select id="list" name="list">
+            {{range .Lists}}
+              <option value="{{.Kind}}" {{if eq (printf "%s" .Kind) $.ListKind}}selected{{end}}>{{.Label}}</option>
+            {{end}}
+          </select>
+        </div>
+      {{end}}
       <button type="submit">Compare</button>
     </form>
 
     <p class="hint callout">
-      <strong>Why four lists?</strong> Adding up the unfollows from each execution
-      overstates who is gone, because somebody can unfollow and later follow again.
+      <strong>Why four lists?</strong> Adding up the departures from each execution
+      overstates who is gone, because an account can leave the list and later return.
       <em>Lost</em> is a direct comparison of the two snapshots, so it counts only
-      people who really are not following now.
+      those genuinely absent now.
     </p>
 
     <div class="buckets">
-      {{template "bucket" dict "Title" "Lost" "Class" "loss" "Blurb" "Followed you at the start, does not now." "Items" .Diff.Lost}}
-      {{template "bucket" dict "Title" "Gained" "Class" "gain" "Blurb" "Not there at the start, follows you now." "Items" .Diff.Gained}}
-      {{template "bucket" dict "Title" "Returned" "Class" "warn" "Blurb" "Unfollowed somewhere in between, but is back." "Items" .Diff.Returned}}
+      {{template "bucket" dict "Title" "Lost" "Class" "loss" "Blurb" "In the list at the start, absent now." "Items" .Diff.Lost}}
+      {{template "bucket" dict "Title" "Gained" "Class" "gain" "Blurb" "Not there at the start, present now." "Items" .Diff.Gained}}
+      {{template "bucket" dict "Title" "Returned" "Class" "warn" "Blurb" "Left somewhere in between, but is back." "Items" .Diff.Returned}}
       {{template "bucket" dict "Title" "Transient" "Class" "muted-bucket" "Blurb" "Seen only in the middle, absent at both ends." "Items" .Diff.Transient}}
     </div>
   {{else}}

@@ -49,7 +49,7 @@ func (s *Service) checkCoverage(export *instagram.Export, previous *store.Upload
 		return nil
 	}
 
-	count := len(export.Followers)
+	count := len(export.Followers())
 	if float64(count) >= float64(previous.FollowerCount)*CollapseDropRatio {
 		return nil
 	}

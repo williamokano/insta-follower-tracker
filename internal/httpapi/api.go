@@ -4,8 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
+
+	"github.com/williamokano/insta-follower-tracker/internal/instagram"
 
 	"github.com/williamokano/insta-follower-tracker/internal/store"
 	"github.com/williamokano/insta-follower-tracker/internal/tracker"
@@ -122,7 +125,13 @@ func (s *Server) handleUploadChanges(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	changes, err := s.svc.Store().ChangesForUpload(r.Context(), id, kind)
+	listKind, err := listKindParam(r)
+	if err != nil {
+		s.writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	changes, err := s.svc.Store().ChangesForUpload(r.Context(), id, listKind, kind)
 	if err != nil {
 		s.writeError(w, r, http.StatusInternalServerError, err)
 		return
@@ -131,6 +140,7 @@ func (s *Server) handleUploadChanges(w http.ResponseWriter, r *http.Request) {
 	followed, unfollowed := splitChanges(changes)
 	body := map[string]any{
 		"upload":      upload,
+		"list_kind":   listKind,
 		"followed":    followed,
 		"unfollowed":  unfollowed,
 		"is_baseline": upload.IsBaseline,
@@ -160,7 +170,19 @@ func (s *Server) handleUploadFollowers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	followers, err := s.svc.Store().MembersForUpload(r.Context(), id)
+	listKind, err := listKindParam(r)
+	if err != nil {
+		s.writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	followers, err := s.svc.Store().MembersForUpload(r.Context(), id, listKind)
+	if err != nil {
+		s.writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	totals, err := s.svc.Store().ListTotalsForUpload(r.Context(), id)
 	if err != nil {
 		s.writeError(w, r, http.StatusInternalServerError, err)
 		return
@@ -168,6 +190,8 @@ func (s *Server) handleUploadFollowers(w http.ResponseWriter, r *http.Request) {
 
 	s.writeJSON(w, r, http.StatusOK, map[string]any{
 		"upload":    upload,
+		"list_kind": listKind,
+		"lists":     inPresentationOrder(totals),
 		"count":     len(followers),
 		"followers": followers,
 	})
@@ -257,7 +281,13 @@ func (s *Server) handleAccountDiff(w http.ResponseWriter, r *http.Request) {
 		from, to = to, from
 	}
 
-	diff, err := s.svc.Store().Diff(ctx, account.ID, from, to)
+	listKind, err := listKindParam(r)
+	if err != nil {
+		s.writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	diff, err := s.svc.Store().Diff(ctx, account.ID, from, to, listKind)
 	if err != nil {
 		s.writeError(w, r, http.StatusInternalServerError, err)
 		return
@@ -265,6 +295,7 @@ func (s *Server) handleAccountDiff(w http.ResponseWriter, r *http.Request) {
 
 	s.writeJSON(w, r, http.StatusOK, map[string]any{
 		"account":   account,
+		"list_kind": diff.ListKind,
 		"from":      diff.From,
 		"to":        diff.To,
 		"lost":      diff.Lost,
@@ -294,16 +325,23 @@ func (s *Server) handleAccountUnfollowers(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	events, err := s.svc.Store().AllUnfollowers(r.Context(), account.ID)
+	listKind, err := listKindParam(r)
+	if err != nil {
+		s.writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	events, err := s.svc.Store().AllUnfollowers(r.Context(), account.ID, listKind)
 	if err != nil {
 		s.writeError(w, r, http.StatusInternalServerError, err)
 		return
 	}
 	s.writeJSON(w, r, http.StatusOK, map[string]any{
-		"account": account,
-		"count":   len(events),
-		"events":  events,
-		"note":    unfollowerNote,
+		"account":   account,
+		"list_kind": listKind,
+		"count":     len(events),
+		"events":    events,
+		"note":      unfollowerNote,
 	})
 }
 
@@ -355,4 +393,105 @@ func formDate(r *http.Request, name string) (time.Time, error) {
 		return time.Time{}, fmt.Errorf("%s must be a date as YYYY-MM-DD, got %q", name, raw)
 	}
 	return t.UTC(), nil
+}
+
+// listKindParam reads which relationship list a request is about, defaulting to
+// followers so every existing caller keeps working unchanged.
+func listKindParam(r *http.Request) (string, error) {
+	raw := strings.TrimSpace(r.URL.Query().Get("list"))
+	if raw == "" {
+		return store.DefaultListKind, nil
+	}
+	if _, ok := instagram.LookupList(raw); !ok {
+		return "", fmt.Errorf("unknown list %q", raw)
+	}
+	return raw, nil
+}
+
+// handleLists reports which relationship lists the service understands.
+func (s *Server) handleLists(w http.ResponseWriter, r *http.Request) {
+	s.writeJSON(w, r, http.StatusOK, map[string]any{"lists": instagram.Lists()})
+}
+
+// handleUploadRelationships answers the questions that compare two lists at the
+// same moment rather than one list across time.
+func (s *Server) handleUploadRelationships(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		s.writeError(w, r, http.StatusBadRequest, err)
+		return
+	}
+
+	upload, err := s.svc.Store().Upload(r.Context(), id)
+	if errors.Is(err, store.ErrNotFound) {
+		s.writeError(w, r, http.StatusNotFound, errors.New("no such execution"))
+		return
+	}
+	if err != nil {
+		s.writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	notBack, err := s.svc.Store().NotFollowingBack(r.Context(), id)
+	if err != nil {
+		s.writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+	fans, err := s.svc.Store().Fans(r.Context(), id)
+	if err != nil {
+		s.writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	totals, err := s.svc.Store().ListTotalsForUpload(r.Context(), id)
+	if err != nil {
+		s.writeError(w, r, http.StatusInternalServerError, err)
+		return
+	}
+
+	hasFollowing := false
+	for _, t := range totals {
+		if t.Kind == string(instagram.ListFollowing) {
+			hasFollowing = true
+		}
+	}
+
+	body := map[string]any{
+		"upload":             upload,
+		"not_following_back": notBack,
+		"fans":               fans,
+		"counts": map[string]int{
+			"not_following_back": len(notBack),
+			"fans":               len(fans),
+		},
+	}
+	if !hasFollowing {
+		body["message"] = "This export did not include the list of accounts you follow, " +
+			"so there is nothing to compare the followers against."
+	}
+	s.writeJSON(w, r, http.StatusOK, body)
+}
+
+// inPresentationOrder sorts an execution's lists the way they are described
+// rather than the way they sort alphabetically, so followers leads.
+func inPresentationOrder(totals []store.ListTotals) []store.ListTotals {
+	rank := map[string]int{}
+	for i, info := range instagram.Lists() {
+		rank[string(info.Kind)] = i
+	}
+
+	out := make([]store.ListTotals, len(totals))
+	copy(out, totals)
+	sort.SliceStable(out, func(i, j int) bool {
+		ri, oki := rank[out[i].Kind]
+		rj, okj := rank[out[j].Kind]
+		if oki != okj {
+			return oki
+		}
+		if ri != rj {
+			return ri < rj
+		}
+		return out[i].Kind < out[j].Kind
+	})
+	return out
 }

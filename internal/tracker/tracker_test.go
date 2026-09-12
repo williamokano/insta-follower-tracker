@@ -257,7 +257,7 @@ func TestOverallDiffDistinguishesReturningFollowers(t *testing.T) {
 		t.Fatalf("resolve last: %v", err)
 	}
 
-	diff, err := st.Diff(ctx, acc.ID, first, last)
+	diff, err := st.Diff(ctx, acc.ID, first, last, "")
 	if err != nil {
 		t.Fatalf("diff: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestOverallDiffDistinguishesReturningFollowers(t *testing.T) {
 	assertNames(t, "returned", diff.Returned, "bob")
 	assertNames(t, "transient", diff.Transient, "carol")
 
-	raw, err := st.AllUnfollowers(ctx, acc.ID)
+	raw, err := st.AllUnfollowers(ctx, acc.ID, "")
 	if err != nil {
 		t.Fatalf("raw unfollowers: %v", err)
 	}
