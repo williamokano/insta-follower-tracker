@@ -572,3 +572,63 @@ func TestFollowerListOfARefusedExecutionIsEmpty(t *testing.T) {
 		t.Fatalf("count = %v, want 0", body["count"])
 	}
 }
+
+// TestTrendsPageRendersTheCharts checks the dashboard actually draws, since a
+// template that fails to resolve a field silently produces an empty plot rather
+// than an error the tests would otherwise notice.
+func TestTrendsPageRendersTheCharts(t *testing.T) {
+	h := newHarness(t, 0)
+
+	h.upload("acme", "e1.zip", exportZip(t, "alice", "bob"))
+	h.drain()
+	h.upload("acme", "e2.zip", exportZip(t, "alice", "carol", "dave"))
+	h.drain()
+
+	resp, err := h.server.Client().Get(h.server.URL + "/accounts/acme/trends")
+	if err != nil {
+		t.Fatalf("get trends: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	page := string(body)
+
+	for _, want := range []string{"<svg", "series-line", "Totals over time", "Change per execution"} {
+		if !strings.Contains(page, want) {
+			t.Fatalf("the trends page is missing %q", want)
+		}
+	}
+	// A colour that failed to interpolate leaves this marker behind, and the
+	// line renders with no stroke at all.
+	if strings.Contains(page, "ZgotmplZ") {
+		t.Fatal("a style value was rejected by the template escaper; the plot would have no colour")
+	}
+	// Marks carry their own colour class rather than an inline style.
+	if !strings.Contains(page, `series-line s1`) {
+		t.Fatal("series should carry a palette class")
+	}
+}
+
+func TestTrendsPageNeedsTwoExecutions(t *testing.T) {
+	h := newHarness(t, 0)
+
+	h.upload("acme", "e1.zip", exportZip(t, "alice"))
+	h.drain()
+
+	resp, err := h.server.Client().Get(h.server.URL + "/accounts/acme/trends")
+	if err != nil {
+		t.Fatalf("get trends: %v", err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	if !strings.Contains(string(body), "at least two processed executions") {
+		t.Fatal("a single execution should explain that charts need two")
+	}
+}

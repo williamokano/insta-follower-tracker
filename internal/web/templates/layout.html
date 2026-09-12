@@ -14,6 +14,7 @@
       <nav class="tabs">
         <a href="/?account={{.Account.Handle}}" class="{{if eq .Page "index"}}active{{end}}">Executions</a>
         <a href="/accounts/{{.Account.Handle}}/diff" class="{{if eq .Page "diff"}}active{{end}}">Overall diff</a>
+        <a href="/accounts/{{.Account.Handle}}/trends" class="{{if eq .Page "dashboard"}}active{{end}}">Trends</a>
       </nav>
     {{end}}
     <span class="version">{{.Version}}</span>

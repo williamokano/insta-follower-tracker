@@ -17,7 +17,7 @@ import (
 var assets embed.FS
 
 // pages maps a page template to the layout it is rendered inside.
-var pages = []string{"index.html", "diff.html"}
+var pages = []string{"index.html", "diff.html", "dashboard.html"}
 
 // Templates parses every page against the shared layout. Each page is its own
 // template set, so they can all define the same content block.
@@ -89,6 +89,8 @@ func funcs() template.FuncMap {
 			}
 			return fmt.Sprintf("%d", *v)
 		},
+		"add": func(a, b float64) float64 { return a + b },
+		"sub": func(a, b float64) float64 { return a - b },
 		"plural": func(n int, one, many string) string {
 			if n == 1 {
 				return one

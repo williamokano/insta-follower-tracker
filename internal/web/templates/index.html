@@ -66,6 +66,7 @@
   <div class="card-head">
     <h2>Executions for {{.Account.Handle}}</h2>
     {{if gt .CompletedCount 1}}
+      <a class="button-link" href="/accounts/{{.Account.Handle}}/trends">Trends →</a>
       <a class="button-link" href="/accounts/{{.Account.Handle}}/diff">Overall diff →</a>
     {{end}}
   </div>
