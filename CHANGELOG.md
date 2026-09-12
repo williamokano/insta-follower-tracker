@@ -1,3 +1,11 @@
+## [1.8.3](https://github.com/williamokano/insta-follower-tracker/compare/v1.8.2...v1.8.3) (2026-09-12)
+
+### Bug Fixes
+
+* **ui:** satisfy errcheck in the asset hasher ([05c9ee2](https://github.com/williamokano/insta-follower-tracker/commit/05c9ee2a9a57ebc84d7d7b272fb6f175a1e99891))
+* **ui:** version asset URLs so released UI changes reach the browser ([559639c](https://github.com/williamokano/insta-follower-tracker/commit/559639c457feaa4fd5a562d9a737385a2ad93e1c))
+* **ui:** version asset URLs so released UI changes reach the browser ([#22](https://github.com/williamokano/insta-follower-tracker/issues/22)) ([cc11892](https://github.com/williamokano/insta-follower-tracker/commit/cc11892f3b7ab0a87863f797b1912ad6105a6b2f))
+
 ## [1.8.2](https://github.com/williamokano/insta-follower-tracker/compare/v1.8.1...v1.8.2) (2026-09-12)
 
 ### Bug Fixes
