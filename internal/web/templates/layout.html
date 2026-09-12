@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.Title}} · Follower Tracker</title>
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v={{.AssetVersion}}">
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='14'>📉</text></svg>">
 </head>
 <body>
@@ -29,6 +29,6 @@
     <p>Follower lists come from Instagram's own “Download your information” export. Nothing is scraped.</p>
   </footer>
 
-  <script src="/static/app.js" defer></script>
+  <script src="/static/app.js?v={{.AssetVersion}}" defer></script>
 </body>
 </html>{{end}}

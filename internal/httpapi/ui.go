@@ -16,11 +16,14 @@ import (
 
 // pageData is the view model shared by both pages.
 type pageData struct {
-	Page      string
-	Title     string
-	Version   string
-	Flash     string
-	FlashKind string
+	Page    string
+	Title   string
+	Version string
+	// AssetVersion stamps the stylesheet and script URLs so that a release
+	// carrying a UI change is fetched rather than served from a browser cache.
+	AssetVersion string
+	Flash        string
+	FlashKind    string
 
 	Accounts []store.AccountSummary
 	Account  *store.Account
@@ -80,6 +83,7 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, dat
 		return
 	}
 	data.Version = s.opts.Version
+	data.AssetVersion = web.AssetVersion
 
 	var buf bytes.Buffer
 	if err := tmpl.ExecuteTemplate(&buf, "layout", data); err != nil {

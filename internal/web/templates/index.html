@@ -10,11 +10,11 @@
   <form class="upload" method="post" action="/upload" enctype="multipart/form-data">
     <div class="upload-fields">
       <div class="field">
-        <label for="account">Instagram account <span class="optional">usually automatic</span></label>
+        <label for="account">Instagram account</label>
         <input id="account" name="account" list="known-accounts"
                placeholder="read from the file" autocomplete="off"
                value="{{if .Account}}{{.Account.Handle}}{{end}}">
-        <small id="account-hint">Filled in from the export. Set it only if that is wrong.</small>
+        <small id="account-hint">Read from the export. Set it only if that is wrong.</small>
       </div>
 
       <div class="field">
@@ -26,7 +26,7 @@
       <div class="field">
         <label for="snapshot_date">Export date <span class="optional">optional</span></label>
         <input id="snapshot_date" name="snapshot_date" type="date">
-        <small>Read from the archive automatically. Set it only if that is wrong.</small>
+        <small>Read from the export. Set it only if that is wrong.</small>
       </div>
     </div>
 
