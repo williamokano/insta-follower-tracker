@@ -1,3 +1,10 @@
+## [1.6.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.5.0...v1.6.0) (2026-09-12)
+
+### Features
+
+* **tracker:** track every relationship list an export carries ([744808b](https://github.com/williamokano/insta-follower-tracker/commit/744808b54b44c0390d1864f8698c0be588cd7245)), closes [#13](https://github.com/williamokano/insta-follower-tracker/issues/13)
+* **tracker:** track every relationship list an export carries ([#17](https://github.com/williamokano/insta-follower-tracker/issues/17)) ([86ad2f6](https://github.com/williamokano/insta-follower-tracker/commit/86ad2f6f5e2d9f1c81443ff34e339ca391831580)), closes [#13](https://github.com/williamokano/insta-follower-tracker/issues/13)
+
 ## [1.5.0](https://github.com/williamokano/insta-follower-tracker/compare/v1.4.0...v1.5.0) (2026-09-12)
 
 ### Features
