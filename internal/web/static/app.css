@@ -640,3 +640,34 @@ footer {
 .table-view { margin-top: 1.5rem; }
 .table-view summary { cursor: pointer; color: var(--accent); font-size: 0.85rem; }
 .table-view table { margin-top: 0.75rem; }
+
+/* Insights. */
+.tag {
+  display: inline-block;
+  font-size: 0.7rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 4px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--muted) 12%, transparent);
+  white-space: nowrap;
+}
+.tag.ending-they_left_first { color: var(--loss); background: color-mix(in srgb, var(--loss) 12%, transparent); }
+.tag.ending-you_left_first { color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+
+.days-input { width: 4.5rem; padding: 0.2rem 0.35rem; }
+
+.meter {
+  display: inline-block;
+  vertical-align: middle;
+  width: 6rem;
+  height: 0.5rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 18%, transparent);
+  overflow: hidden;
+}
+.meter > span { display: block; height: 100%; background: var(--accent); }
+
+.executions.scrollable { display: block; overflow-x: auto; }
+.executions.scrollable a { color: var(--accent); text-decoration: none; }
+.executions.scrollable a:hover { text-decoration: underline; }
+.window-form { display: flex; align-items: center; gap: 0.5rem; }

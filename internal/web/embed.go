@@ -21,7 +21,7 @@ import (
 var assets embed.FS
 
 // pages maps a page template to the layout it is rendered inside.
-var pages = []string{"index.html", "diff.html", "dashboard.html"}
+var pages = []string{"index.html", "diff.html", "dashboard.html", "insights.html"}
 
 // Templates parses every page against the shared layout. Each page is its own
 // template set, so they can all define the same content block.

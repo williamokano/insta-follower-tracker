@@ -160,6 +160,40 @@ and so on. Uploading the ZIP handles that automatically.
   line per list placed by real export date, and gains and losses per execution.
 - **`/accounts/{handle}/diff`** — the overall comparison, defaulting to the
   first and latest executions, with the four buckets described above.
+- **`/accounts/{handle}/insights`** — patterns across the whole history,
+  described under [Insights](#insights).
+
+## Insights
+
+The insights page reads the stored history for patterns that no single diff
+shows. Nothing new is parsed and no new upload is needed: every answer comes from
+the lists already recorded, and where the exports cannot settle a question the
+answer is left open.
+
+| Section | What it answers | Needs |
+| --- | --- | --- |
+| **Quick unfollows** | Who followed you, got a follow back, and was gone within *N* days. That is the follow-for-follow pattern. | JSON exports (follow dates), following list |
+| **Ended mutual follows** | Follows that went both ways and no longer do, and which side stopped first. | Following list |
+| **Left more than once** | Who has unfollowed you at least twice, following again in between. | — |
+| **Retention by month followed** | Of everybody who followed in a given month, how many still do. | JSON exports (follow dates) |
+| **Clean-up** | Follow requests you sent that are still unanswered, oldest first, and close friends who do not follow you. | Pending requests and close friends lists in the latest export |
+
+Some answers cannot be exact, for the same reason the charts draw change across
+a gap. A departure is never dated. It is only known to fall between two exports:
+
+- A **quick unfollow**'s stay is an upper limit: the time from the follow date to
+  the first export that no longer shows them. A long gap between exports makes
+  that limit too loose to call anything quick, so infrequent exports hide quick
+  unfollows rather than inventing them.
+- **Who ended a mutual follow first** is only stated when one side's departure
+  is bracketed entirely before the other's. When both happened between the same
+  two exports, the answer is "cannot tell".
+- **Retention for months before your first export** is overstated. Anybody who
+  followed and left before then was never recorded, so only the survivors are
+  counted. Those months are marked.
+
+Renames and accounts you blocked are never counted as somebody choosing to
+leave.
 
 ## HTTP API
 
@@ -177,6 +211,7 @@ and so on. Uploading the ZIP handles that automatically.
 | `GET` | `/api/accounts/{handle}/diff` | Overall diff. `?from=` and `?to=` accept `first`, `last` or an execution id; defaults to `first` and `last`. |
 | `POST` | `/api/accounts/{handle}/reprocess` | Read that account's stored exports again. Answers `202` with how many were queued. |
 | `GET` | `/api/accounts/{handle}/unfollowers` | Raw departure log across all executions. Over-reports by design. |
+| `GET` | `/api/accounts/{handle}/insights` | Every insight below. `?days=` sets the quick-unfollow window (1–365, default 30). |
 
 Every endpoint that reads a list takes `?list=` to choose which one, defaulting
 to `followers`.
