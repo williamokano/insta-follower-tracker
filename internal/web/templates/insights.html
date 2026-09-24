@@ -1,0 +1,198 @@
+{{define "content"}}
+{{$in := .Insights}}
+<section class="card">
+  <div class="card-head">
+    <h1>Insights for {{.Account.Handle}}</h1>
+    <a class="button-link" href="/?account={{.Account.Handle}}">← Executions</a>
+  </div>
+
+  {{if not $in.Latest}}
+    <p class="empty">No processed executions yet. Upload an export and the insights will appear here.</p>
+  {{else}}
+    <p class="hint">
+      Everything here comes from the {{$in.Executions}} {{plural $in.Executions "export" "exports"}}
+      already uploaded. The latest was generated on {{shortDate $in.Latest.SnapshotTakenAt}}. Where the exports
+      cannot settle a question, the answer is left open rather than guessed.
+    </p>
+    {{if not $in.FollowingRecorded}}
+      <p class="hint callout">
+        None of these exports included the list of accounts you follow, so the
+        sections that compare the two lists have nothing to go on. Download
+        <strong>Followers and following</strong> to fill them in.
+      </p>
+    {{end}}
+  {{end}}
+</section>
+
+{{if $in.Latest}}
+<section class="card" id="quick-unfollows">
+  <div class="card-head">
+    <h2>Quick unfollows <span class="count">{{len $in.QuickUnfollows}}</span></h2>
+    <form class="window-form" method="get" action="/accounts/{{.Account.Handle}}/insights">
+      <label class="checkbox" for="days">Within
+        <input id="days" name="days" type="number" min="1" max="365" value="{{$in.QuickUnfollowDays}}" class="days-input">
+        days
+      </label>
+      <button type="submit" class="secondary">Apply</button>
+    </form>
+  </div>
+  <p class="hint">
+    They followed you, you followed them back, and they had left within
+    {{$in.QuickUnfollowDays}} days: the follow-for-follow pattern. Nobody can say exactly
+    when someone left, only that they were gone by the next export. So each stay is an upper
+    limit, and a long gap between exports hides a quick unfollow instead of inventing one.
+    Needs JSON exports, which date each follow.
+  </p>
+  {{if $in.QuickUnfollows}}
+    <table class="executions scrollable">
+      <thead>
+        <tr><th>Account</th><th>Followed you</th><th>Gone by</th><th class="num">Stayed at most</th><th>You still follow</th></tr>
+      </thead>
+      <tbody>
+        {{range $in.QuickUnfollows}}
+          <tr>
+            <td><a href="{{profileURL .Username}}" target="_blank" rel="noopener noreferrer">{{.Username}}</a>{{if .FollowsAgain}} <span class="tag">back now</span>{{end}}</td>
+            <td>{{shortDate .FollowedAt}}</td>
+            <td>{{shortDate .GoneBy}}</td>
+            <td class="num">{{.StayedAtMostDays}} {{plural .StayedAtMostDays "day" "days"}}</td>
+            <td>{{if .YouStillFollow}}<strong>yes</strong>{{else}}no{{end}}</td>
+          </tr>
+        {{end}}
+      </tbody>
+    </table>
+  {{else}}
+    <p class="empty">Nobody found.</p>
+  {{end}}
+</section>
+
+<section class="card" id="ended-mutuals">
+  <h2>Ended mutual follows <span class="count">{{len $in.EndedMutuals}}</span></h2>
+  <p class="hint">
+    Accounts that you followed and that followed you back, and where at least one of you has
+    since stopped. It says who stopped first when the exports can show it. When both happened
+    between the same two exports, the order is unknown.
+  </p>
+  {{if $in.EndedMutuals}}
+    <table class="executions scrollable">
+      <thead>
+        <tr><th>Account</th><th>Who ended it</th><th>Last mutual</th><th>Follows you</th><th>You follow</th></tr>
+      </thead>
+      <tbody>
+        {{range $in.EndedMutuals}}
+          <tr>
+            <td><a href="{{profileURL .Username}}" target="_blank" rel="noopener noreferrer">{{.Username}}</a></td>
+            <td><span class="tag ending-{{.Ending}}">{{.Label}}</span></td>
+            <td>{{shortDate .LastMutual}}</td>
+            <td>{{if .StillFollowsYou}}yes{{else}}no{{end}}</td>
+            <td>{{if .YouStillFollow}}yes{{else}}no{{end}}</td>
+          </tr>
+        {{end}}
+      </tbody>
+    </table>
+  {{else}}
+    <p class="empty">Nobody found.</p>
+  {{end}}
+</section>
+
+<section class="card" id="repeat-leavers">
+  <h2>Left more than once <span class="count">{{len $in.RepeatLeavers}}</span></h2>
+  <p class="hint">
+    People who have unfollowed you at least twice, following you again in between. Renames
+    and accounts you blocked do not count as leaving.
+  </p>
+  {{if $in.RepeatLeavers}}
+    <table class="executions scrollable">
+      <thead>
+        <tr><th>Account</th><th class="num">Times left</th><th>Following you now</th></tr>
+      </thead>
+      <tbody>
+        {{range $in.RepeatLeavers}}
+          <tr>
+            <td><a href="{{profileURL .Username}}" target="_blank" rel="noopener noreferrer">{{.Username}}</a></td>
+            <td class="num">{{.Departures}}</td>
+            <td>{{if .FollowsNow}}yes{{else}}no{{end}}</td>
+          </tr>
+        {{end}}
+      </tbody>
+    </table>
+  {{else}}
+    <p class="empty">Nobody has left more than once.</p>
+  {{end}}
+</section>
+
+<section class="card" id="cohorts">
+  <h2>Retention by month followed</h2>
+  <p class="hint">
+    Every follower ever seen, grouped by the month they followed you, and how many are still
+    in the latest export. For months that <em>started before your first export</em>, anyone
+    who followed and left before that export was never recorded, so those months look better
+    than they really were.
+    {{if $in.UndatedFollowers}}{{$in.UndatedFollowers}} {{plural $in.UndatedFollowers "follower has" "followers have"}} no follow date in any export (HTML exports leave it out) and {{plural $in.UndatedFollowers "is" "are"}} not counted.{{end}}
+  </p>
+  {{if $in.Cohorts}}
+    <table class="executions scrollable">
+      <thead>
+        <tr><th>Month</th><th class="num">Followed</th><th class="num">Still following</th><th class="num">Kept</th><th></th></tr>
+      </thead>
+      <tbody>
+        {{range $in.Cohorts}}
+          <tr>
+            <td>{{.Month}}</td>
+            <td class="num">{{.Followed}}</td>
+            <td class="num">{{.Stayed}}</td>
+            <td class="num">{{.Percent}}%</td>
+            <td>
+              <span class="meter" role="img" aria-label="{{.Percent}} percent kept"><span style="width: {{.Percent}}%"></span></span>
+              {{if .BeforeTracking}}<span class="tag muted" title="Began before the first export, so people who left before then are missing">before tracking</span>{{end}}
+            </td>
+          </tr>
+        {{end}}
+      </tbody>
+    </table>
+  {{else}}
+    <p class="empty">No follow dates recorded. Upload a JSON export to see this.</p>
+  {{end}}
+</section>
+
+<section class="card" id="cleanup">
+  <h2>Clean-up</h2>
+  <p class="hint">Read from the latest export only.</p>
+  <div class="buckets">
+    <div class="bucket warn">
+      <h3>Unanswered follow requests {{if $in.PendingRequests}}<span class="count">{{len $in.PendingRequests}}</span>{{end}}</h3>
+      <p class="blurb">Requests you sent that are still waiting, oldest first. Old ones are worth withdrawing.</p>
+      {{if not $in.PendingRecorded}}
+        <p class="empty">The latest export did not include this list.</p>
+      {{else if $in.PendingRequests}}
+        <ul class="people">
+          {{range $in.PendingRequests}}
+            <li>
+              <a href="{{profileURL .Username}}" target="_blank" rel="noopener noreferrer">{{.Username}}</a>
+              {{if .AgeDays}}<span class="muted">{{.AgeDays}}d</span>{{end}}
+            </li>
+          {{end}}
+        </ul>
+      {{else}}
+        <p class="empty">None.</p>
+      {{end}}
+    </div>
+
+    <div class="bucket loss">
+      <h3>Close friends not following you {{if $in.CloseFriendsNotFollowing}}<span class="count">{{len $in.CloseFriendsNotFollowing}}</span>{{end}}</h3>
+      <p class="blurb">On your close friends list, but not in your followers.</p>
+      {{if not $in.CloseFriendsRecorded}}
+        <p class="empty">The latest export did not include your close friends list.</p>
+      {{else if $in.CloseFriendsNotFollowing}}
+        <ul class="people">
+          {{range $in.CloseFriendsNotFollowing}}
+            <li><a href="{{profileURL .Username}}" target="_blank" rel="noopener noreferrer">{{.Username}}</a></li>
+          {{end}}
+        </ul>
+      {{else}}
+        <p class="empty">None.</p>
+      {{end}}
+    </div>
+  </div>
+</section>
+{{end}}
+{{end}}

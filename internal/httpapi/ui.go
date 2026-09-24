@@ -48,6 +48,9 @@ type pageData struct {
 	Stats          []StatTile
 	History        []chart.Execution
 	ExecutionCount int
+
+	// Insights page.
+	Insights *store.Insights
 }
 
 // uiRoutes registers the web interface. It is defined separately so the JSON
@@ -70,6 +73,7 @@ func (s *Server) uiRoutes() error {
 	s.mux.HandleFunc("POST /accounts/{handle}/reprocess", s.handleReprocessForm)
 	s.mux.HandleFunc("GET /accounts/{handle}/diff", s.handleDiffPage)
 	s.mux.HandleFunc("GET /accounts/{handle}/trends", s.handleTrends)
+	s.mux.HandleFunc("GET /accounts/{handle}/insights", s.handleInsightsPage)
 
 	return nil
 }

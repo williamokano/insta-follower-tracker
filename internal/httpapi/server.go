@@ -69,6 +69,7 @@ func (s *Server) routes() error {
 	s.mux.HandleFunc("GET /api/accounts/{handle}/followers", s.handleAccountFollowers)
 	s.mux.HandleFunc("GET /api/accounts/{handle}/diff", s.handleAccountDiff)
 	s.mux.HandleFunc("GET /api/accounts/{handle}/unfollowers", s.handleAccountUnfollowers)
+	s.mux.HandleFunc("GET /api/accounts/{handle}/insights", s.handleAccountInsights)
 	s.mux.HandleFunc("POST /api/accounts/{handle}/reprocess", s.handleReprocess)
 
 	return s.uiRoutes()
